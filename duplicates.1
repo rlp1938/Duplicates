@@ -1,0 +1,73 @@
+.TH DUPLICATES 1 "v\ 1.0.0" "2014-05-15" "GNU"
+.SH NAME
+.B duplicates
+\- Generate a list of duplicated files in user input dir.
+.SH SYNOPSIS
+duplicates dir > dups.lst
+.br
+duplicates dir > dups.lst 2> broken_links
+.br
+.SH OPTIONS
+-h, prints a brief help message.
+.br
+-d, don't delete the workfiles in /tmp
+.br
+-v, each invocation increases verbosity, default is 0.
+.br
+.RS
+0, emit no progress information.
+.br
+1, emit information of each new section started.
+.br
+2, emit pathname of each 100th file during Md5sum generation.
+.br
+3, the same for every tenth file.
+.br
+4+, the same for every file.
+.RE
+.br
+You probably do not want to use this option when you are redirecting
+.br
+stderr to a file. Eg 2> errors_file
+.SH DESCRIPTION
+When run to conclusion a total of 8 workfiles will be created in /tmp.
+.br
+The filenames are of the form $USERduplicates0 .. $USERduplicates7.
+.br
+The program works by sorting md5sum, inode number, then pathname of
+.br
+every regular file and symlink under the named directory.
+.br
+Then the sorted file is traversed and only those records that match on
+.br
+md5sum but differ in inode number are preserved.
+.br
+Because symlinks are statted the recorded inode is that of the target
+.br
+not the actual symlink itself.
+.br
+This ordering is not too useful for dealing with the actual duplicated
+.br
+files, especially when the duplication has arisen from recursive
+.br
+copying of directories. Consequently I sort the results by group, based
+.br
+on the most signifcant part of the path name of the first item of the
+.br
+replicated group. This result is sent to stdout.
+.br
+Errors where they occur are sent to stderr as also is the result of
+.br
+of selecting any level of verbosity.
+.br
+NB zero length files are never taken into account in this program.
+.br
+.SH VERSION
+This documentation describes
+.B duplicates
+version 1.0.0
+.SH "SEE ALSO"
+brokensym(1), bigfiles(1)
+.br
+.SH AUTHOR
+Robert L (Bob) Parker <rlp1938@gmail.com>
