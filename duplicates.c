@@ -31,6 +31,8 @@
 #include <dirent.h>
 #include "md5.h"
 #include "config.h"
+#include "fileutil.h"
+#include <ctype.h>
 
 int filecount;
 
@@ -47,14 +49,17 @@ struct hashrecord {
 };
 
 void help_print(int forced);
-FILE *dofopen(const char *path, const char *mode);
 char *dostrdup(const char *s);
-void recursedir(char *headdir, FILE *fpo);
+void recursedir(char *headdir, FILE *fpo, char **vlist);
 char *domd5sum(const char *pathname);
 struct hashrecord parse_line(char *line);
 void clipeol(char *line);
 char *thepathname(char *line);
 char *getcluster(char *path, int depth);
+void firstrun(void);
+char *getconfigpath(void);
+char **mem2strlist(char *from, char *to);
+
 
 
 
@@ -74,6 +79,7 @@ int main(int argc, char **argv)
 {
 	int opt, result, verbosity, delworks;
 	struct stat sb;
+	struct fdata fdat;
 	char *workfile0;
 	char *workfile1;
 	char *workfile2;
@@ -89,6 +95,8 @@ int main(int argc, char **argv)
 	struct hashrecord hr1, hr2;
 	char *topdir;
 	char *fgetsresult;
+	char *efl;	// path to excludes list
+	char **vlist;
 
 	// set default values
 	verbosity = 0;
@@ -164,6 +172,16 @@ int main(int argc, char **argv)
 	sprintf(command, "/tmp/%sduplicates7", getenv("USER"));
 	workfile7 = dostrdup(command);
 
+	// get my exclusions file
+	efl = getconfigpath();
+	fdat = readfile(efl, 1, 0);
+	if (!(fdat.from)) {
+		firstrun();
+		fdat = readfile(efl, 1, 1); // fatal if I dont have it now
+	}
+	// turn the exclusions file into an array of strings
+	vlist = mem2strlist(fdat.from, fdat.to);
+
 
 	// Step 0 - list the files
 	if (verbosity){
@@ -176,11 +194,11 @@ int main(int argc, char **argv)
 		if (topdir[len-1] == '/') topdir[len-1] = '\0';
 	}
 	fpo = dofopen(workfile0, "w");
-	recursedir(topdir, fpo);
+	recursedir(topdir, fpo, vlist);
 	fclose(fpo);
 	// Now sort them
 	if (verbosity){
-		fputs("Soting list of files\n", stderr);
+		fputs("Sorting list of files\n", stderr);
 	}
 	if (setenv("LC_ALL", "C", 1) == -1){	// sort bitwise L-R
 		perror("LC_ALL=C");
@@ -215,7 +233,7 @@ int main(int argc, char **argv)
 		} else {
 			int report;
 			char *thesum = domd5sum(buf1);
-			fprintf(fpo, "%s %lu %c %s\n", domd5sum(buf1),
+			fprintf(fpo, "%s %lu %c %s\n", thesum,
 				sb.st_ino, *cp, buf1);
 			// NB in the case of a symlink, sb.st_ino is the inode of
 			// the target, not the inode of the link itself.
@@ -418,17 +436,6 @@ void help_print(int forced){
     exit(forced);
 } // help_print()
 
-FILE *dofopen(const char *path, const char *mode)
-{
-	// fopen with error handling
-	FILE *fp = fopen(path, mode);
-	if(!(fp)){
-		perror(path);
-		exit(EXIT_FAILURE);
-	}
-	return fp;
-} // dofopen()
-
 
 char *dostrdup(const char *s)
 {
@@ -443,7 +450,7 @@ char *dostrdup(const char *s)
 	return cp;
 } // dostrdup()
 
-void recursedir(char *headdir, FILE *fpo)
+void recursedir(char *headdir, FILE *fpo, char **vlist)
 {
 	/* open the dir at headdir and process according to file type.
 	*/
@@ -456,6 +463,7 @@ void recursedir(char *headdir, FILE *fpo)
 		exit(EXIT_FAILURE);
 	}
 	while((de = readdir(dirp))) {
+		int index, want;
 		if (strcmp(de->d_name, "..") == 0) continue;
 		if (strcmp(de->d_name, ".") == 0) continue;
 
@@ -492,14 +500,26 @@ void recursedir(char *headdir, FILE *fpo)
 			if (sb.st_size == 0) break;	// no interest in 0 length files
 			ftyp = 'f';
 REG_LNK_common:
-			fprintf(fpo, "%s %c \n", newpath, ftyp );
+			// check our excludes
+			want = 1;
+			index = 0;
+			while (vlist[index]) {
+				if (strstr(newpath, vlist[index])) {
+					want = 0;
+					break;
+				}
+				index++;
+			}
+			if(want){
+				fprintf(fpo, "%s %c \n", newpath, ftyp );
+			}
 			break;
 			case DT_DIR:
 			// recurse using this pathname.
 			strcpy(newpath, headdir);
 			strcat(newpath, "/");
 			strcat(newpath, de->d_name);
-			recursedir(newpath, fpo);
+			recursedir(newpath, fpo, vlist);
 			break;
 			// Just report the error but nothing else.
 			case DT_UNKNOWN:
@@ -610,3 +630,125 @@ char *getcluster(char *path, int depth)
 	if (cp) *cp = '\0';
 	return buf;
 } // getcluster()
+
+void firstrun(void)
+{
+	char line[PATH_MAX], userhome[PATH_MAX];
+	struct stat sb;
+	FILE *fpi, *fpo;
+	char *cfg;
+
+	cfg = getconfigpath();
+	strcpy(userhome, cfg);
+	if(stat(userhome, &sb) == -1) {
+		char *cp;
+		char *sharefile = "/usr/local/share/excludes.conf";
+		cp = strstr(userhome, "excludes.conf");
+		*cp = '\0';
+		if(stat(userhome, &sb) == -1) { // no dir
+			if (mkdir(userhome, 0755) == -1) {
+				perror(userhome);
+				exit(EXIT_FAILURE);
+			}
+		}
+		fpi = dofopen(sharefile, "r");
+		strcat(userhome, "excludes.conf");
+		fpo = dofopen(userhome, "w");
+		while (fgets(line, PATH_MAX, fpi)){
+			fputs(line, fpo);
+		}
+		fclose(fpi); fclose(fpo);
+	}
+	fputs(userhome, stderr);
+	fputs(" has been created\n"
+	"You can edit this file to control what pathnames to exclude\n"
+	"from processing by duplicates.\n"
+	"Excluded pathnames are any that contain the text in any line\n"
+	"of the file, except what is commented by '#'.\n"
+	,stderr);
+} // firstrun()
+
+char *getconfigpath(void)
+{
+	static char userhome[PATH_MAX];
+	char *enval = getenv("USER");
+	sprintf(userhome, "/home/%s/.config/duplicates/excludes.conf",
+			enval);
+	return userhome;
+} // getconfigpath()
+
+char **mem2strlist(char *from, char *to)
+{	/* input is a block of memory comprising data seperated by '\n'
+	Operate on the data to make a list of null terminated strings.
+	* I'll have enough char * for all lines + NULL terminator.
+	* If some lines end up empty then I'll have several terminators.
+	*/
+	char **vlist;
+	char *cp, *tp, *bp;
+	int cmnt = 0;
+	int count = 0;
+	int i;
+	char buf[PATH_MAX];
+
+	cp = from;
+	while(cp < to) {
+		if (*cp == '\n') count++;
+		cp++;
+	}
+	count++;
+	vlist = malloc(count * sizeof(char *));
+	memset(vlist, 0, count * sizeof(char *));
+
+	cp = from;
+	tp = buf;
+	i = 0;
+	while (cp < to) {
+		switch(*cp) {
+			case '#':
+			cmnt = 1;
+			break;
+			case '\n':
+			cmnt = 0;
+			*tp = '\0';
+			if (strlen(buf)){
+				bp = buf;	// get rid of leading whitespace
+				while(isspace(*bp)) bp++;
+				if (strlen(bp)) {
+					vlist[i] = dostrdup(bp);
+					i++;
+				}
+			}
+			tp = buf;
+			break;
+			default:
+			if(!(cmnt)){
+				*tp = *cp;
+				tp++;
+			}
+			break;
+		}
+		cp++;
+	}
+	// and what happens if the last char is not '\n'?
+	if (tp > buf) {
+		*tp = '\0';
+		bp = buf;	// get rid of leading whitespace
+		while(isspace(*bp)) bp++;
+		if (strlen(bp)) {
+			vlist[i] = dostrdup(bp);
+			i++;
+		}
+	}
+	vlist[i] = (char *)NULL;
+	// what I have not yet done is clean white space off the ends
+	i = 0;
+	while((vlist[i])) {
+		cp = vlist[i];
+		tp = cp + strlen(vlist[i]) -1;
+		while (isspace(*tp)) tp--;
+		tp++; // back up to first space char
+		*tp = '\0';
+		i++;
+	}
+	return vlist;
+} // mem2strlist()
