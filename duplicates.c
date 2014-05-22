@@ -642,7 +642,7 @@ void firstrun(void)
 	strcpy(userhome, cfg);
 	if(stat(userhome, &sb) == -1) {
 		char *cp;
-		char *sharefile = "/usr/local/share/excludes.conf";
+		char *sharefile = "/usr/local/share/duplicates/excludes.conf";
 		cp = strstr(userhome, "excludes.conf");
 		*cp = '\0';
 		if(stat(userhome, &sb) == -1) { // no dir
