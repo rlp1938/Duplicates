@@ -46,7 +46,8 @@ duplicates.o: duplicates.c /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/local_lim.h \
  /usr/include/linux/limits.h md5.h \
  /usr/lib/gcc/x86_64-linux-gnu/4.8/include/stdint.h /usr/include/stdint.h \
- /usr/include/x86_64-linux-gnu/bits/wchar.h config.h
+ /usr/include/x86_64-linux-gnu/bits/wchar.h config.h fileutil.h \
+ /usr/include/ctype.h
 
 /usr/include/stdc-predef.h:
 
@@ -181,3 +182,7 @@ md5.h:
 /usr/include/x86_64-linux-gnu/bits/wchar.h:
 
 config.h:
+
+fileutil.h:
+
+/usr/include/ctype.h:

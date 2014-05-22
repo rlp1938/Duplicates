@@ -97,9 +97,10 @@ CONFIG_HEADER = config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(man1dir)" \
-	"$(DESTDIR)$(datadir)"
+	"$(DESTDIR)$(dupdir)"
 PROGRAMS = $(bin_PROGRAMS)
-am_duplicates_OBJECTS = duplicates.$(OBJEXT) md5.$(OBJEXT)
+am_duplicates_OBJECTS = duplicates.$(OBJEXT) md5.$(OBJEXT) \
+	fileutil.$(OBJEXT)
 duplicates_OBJECTS = $(am_duplicates_OBJECTS)
 duplicates_LDADD = $(LDADD)
 AM_V_P = $(am__v_P_@AM_V@)
@@ -167,7 +168,7 @@ am__uninstall_files_from_dir = { \
 man1dir = $(mandir)/man1
 NROFF = nroff
 MANS = $(man_MANS)
-DATA = $(data_DATA)
+DATA = $(dup_DATA)
 am__tagged_files = $(HEADERS) $(SOURCES) $(TAGS_FILES) \
 	$(LISP)config.h.in
 # Read a list of newline-separated strings from the standard input,
@@ -289,14 +290,16 @@ psdir = @psdir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 srcdir = @srcdir@
+subdirs = @subdirs@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-duplicates_SOURCES = duplicates.c md5.c
+duplicates_SOURCES = duplicates.c md5.c fileutil.c
 man_MANS = duplicates.1
-data_DATA = duplicates.config
+dupdir = $(datadir)/duplicates
+dup_DATA = excludes.conf
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
@@ -405,6 +408,7 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/duplicates.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fileutil.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/md5.Po@am__quote@
 
 .c.o:
@@ -463,27 +467,27 @@ uninstall-man1:
 	} | sed -e 's,.*/,,;h;s,.*\.,,;s,^[^1][0-9a-z]*$$,1,;x' \
 	      -e 's,\.[0-9a-z]*$$,,;$(transform);G;s,\n,.,'`; \
 	dir='$(DESTDIR)$(man1dir)'; $(am__uninstall_files_from_dir)
-install-dataDATA: $(data_DATA)
+install-dupDATA: $(dup_DATA)
 	@$(NORMAL_INSTALL)
-	@list='$(data_DATA)'; test -n "$(datadir)" || list=; \
+	@list='$(dup_DATA)'; test -n "$(dupdir)" || list=; \
 	if test -n "$$list"; then \
-	  echo " $(MKDIR_P) '$(DESTDIR)$(datadir)'"; \
-	  $(MKDIR_P) "$(DESTDIR)$(datadir)" || exit 1; \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(dupdir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(dupdir)" || exit 1; \
 	fi; \
 	for p in $$list; do \
 	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
 	  echo "$$d$$p"; \
 	done | $(am__base_list) | \
 	while read files; do \
-	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(datadir)'"; \
-	  $(INSTALL_DATA) $$files "$(DESTDIR)$(datadir)" || exit $$?; \
+	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(dupdir)'"; \
+	  $(INSTALL_DATA) $$files "$(DESTDIR)$(dupdir)" || exit $$?; \
 	done
 
-uninstall-dataDATA:
+uninstall-dupDATA:
 	@$(NORMAL_UNINSTALL)
-	@list='$(data_DATA)'; test -n "$(datadir)" || list=; \
+	@list='$(dup_DATA)'; test -n "$(dupdir)" || list=; \
 	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
-	dir='$(DESTDIR)$(datadir)'; $(am__uninstall_files_from_dir)
+	dir='$(DESTDIR)$(dupdir)'; $(am__uninstall_files_from_dir)
 
 ID: $(am__tagged_files)
 	$(am__define_uniq_tagged_files); mkid -fID $$unique
@@ -711,7 +715,7 @@ check-am: all-am
 check: check-am
 all-am: Makefile $(PROGRAMS) $(MANS) $(DATA) config.h
 installdirs:
-	for dir in "$(DESTDIR)$(bindir)" "$(DESTDIR)$(man1dir)" "$(DESTDIR)$(datadir)"; do \
+	for dir in "$(DESTDIR)$(bindir)" "$(DESTDIR)$(man1dir)" "$(DESTDIR)$(dupdir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-am
@@ -767,7 +771,7 @@ info: info-am
 
 info-am:
 
-install-data-am: install-dataDATA install-man
+install-data-am: install-dupDATA install-man
 
 install-dvi: install-dvi-am
 
@@ -814,7 +818,7 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-binPROGRAMS uninstall-dataDATA uninstall-man
+uninstall-am: uninstall-binPROGRAMS uninstall-dupDATA uninstall-man
 
 uninstall-man: uninstall-man1
 
@@ -828,7 +832,7 @@ uninstall-man: uninstall-man1
 	distclean-hdr distclean-tags distcleancheck distdir \
 	distuninstallcheck dvi dvi-am html html-am info info-am \
 	install install-am install-binPROGRAMS install-data \
-	install-data-am install-dataDATA install-dvi install-dvi-am \
+	install-data-am install-dupDATA install-dvi install-dvi-am \
 	install-exec install-exec-am install-html install-html-am \
 	install-info install-info-am install-man install-man1 \
 	install-pdf install-pdf-am install-ps install-ps-am \
@@ -836,7 +840,7 @@ uninstall-man: uninstall-man1
 	maintainer-clean maintainer-clean-generic mostlyclean \
 	mostlyclean-compile mostlyclean-generic pdf pdf-am ps ps-am \
 	tags tags-am uninstall uninstall-am uninstall-binPROGRAMS \
-	uninstall-dataDATA uninstall-man uninstall-man1
+	uninstall-dupDATA uninstall-man uninstall-man1
 
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.

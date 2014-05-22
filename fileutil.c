@@ -18,7 +18,7 @@
  *	MA 02110-1301, USA.
 */
 
-#include "readfile.h"
+#include "fileutil.h"
 
 struct fdata readfile(const char *filename, off_t extra, int fatal)
 {
