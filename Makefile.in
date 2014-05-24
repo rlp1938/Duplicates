@@ -296,10 +296,17 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-duplicates_SOURCES = duplicates.c md5.c fileutil.c
+duplicates_SOURCES = duplicates.c md5.c fileutil.c fileutil.h  md5.h \
+ unlocked-io.h
+
 man_MANS = duplicates.1
+# next lines added by hand edit
+# send excludes.conf to $(prefix)/share/
 dupdir = $(datadir)/duplicates
 dup_DATA = excludes.conf
+# ensure that excludes.conf and duplicates.1 get put in the tarball.
+# also stops make distcheck bringing an error.
+EXTRA_DIST = excludes.conf duplicates.1
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
