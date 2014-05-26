@@ -36,6 +36,8 @@
 
 int filecount;
 
+char *prefix;
+
 struct filedata {
     char *from; // start of file content
     char *to;   // last byte of data + 1
@@ -67,7 +69,18 @@ char *helptext = "\n\tUsage: duplicates [option] dir_to_search\n"
   "\n\tOptions:\n"
   "\t-h outputs this help message.\n"
   "\t-d debug mode, don't discard temporary work files.\n"
-  "\t-n report hard linked duplicates as well as separate files.\n"
+  "\t-p prefix. If you used any prefix other than the default when\n"
+  "\t   you ./configure the build you must enter that prefix using\n"
+  "\t   this option on the first run of the program. The option is not\n"
+  "\t   required or effective on subsequent runs.\n"
+  "\t-v each invocation increases verbosity, default is 0\n"
+  "\t\t0, emit no progress information.\n"
+  "\t\t1, emit information of each new section started.\n"
+  "\t\t2, emit pathname of each 100th file during Md5sum generation.\n"
+  "\t\t3, the same for every tenth file.\n"
+  "\t\t4+, the same for every file.\n"
+  "\tYou probably do not want to use this option when you are redirecting\n"
+  "\tstderr to a file. Eg 2> errors_file\n"
   ;
 
 
@@ -104,10 +117,11 @@ int main(int argc, char **argv)
 	fpofinal = stdout;
 	clusterdepth = 3;
 	delworks = 1;	// delete workfiles is the default
+	prefix = dostrdup("/usr/local/");
 
 	eol = "\n";	// string in case I ever want to do Microsoft
 
-	while((opt = getopt(argc, argv, ":hvdc:")) != -1) {
+	while((opt = getopt(argc, argv, ":hvdc:p:")) != -1) {
 		switch(opt){
 		case 'h':
 			help_print(0);
@@ -117,6 +131,10 @@ int main(int argc, char **argv)
 		break;
 		case 'c':
 			clusterdepth = atoi(optarg);
+		break;
+		case 'p':
+			free(prefix);
+			prefix = dostrdup(optarg);
 		break;
 		case 'v':
 			verbosity++;	// 4 levels of verbosity, 0-3. 0 no progress
@@ -642,7 +660,8 @@ void firstrun(void)
 	strcpy(userhome, cfg);
 	if(stat(userhome, &sb) == -1) {
 		char *cp;
-		char *sharefile = "/usr/local/share/duplicates/excludes.conf";
+		char sharefile[PATH_MAX];
+		// char *sharefile = "/usr/local/share/duplicates/excludes.conf";
 		cp = strstr(userhome, "excludes.conf");
 		*cp = '\0';
 		if(stat(userhome, &sb) == -1) { // no dir
@@ -651,6 +670,11 @@ void firstrun(void)
 				exit(EXIT_FAILURE);
 			}
 		}
+		strcpy(sharefile, prefix);
+		if (sharefile[strlen(sharefile)-1] != '/') {
+			strcat(sharefile, "/");
+		}
+		strcat(sharefile, "duplicates/excludes.conf");
 		fpi = dofopen(sharefile, "r");
 		strcat(userhome, "excludes.conf");
 		fpo = dofopen(userhome, "w");
