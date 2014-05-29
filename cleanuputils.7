@@ -1,0 +1,131 @@
+.TH CLEANUPUTILS 1 "v\ 1.0.0" "2014-05-29" "GNU"
+.SH NAME
+.B Cleanuputils
+\- A tutorial introduction to the use of a set of utilities intended to
+assist in managing disc space.
+.SH SYNOPSIS
+duplicates, processdups, oldfiles, brokensym, zapfiles.
+.br
+.SH DESCRIPTION
+.br
+.P
+.B duplicates
+This is a program to list duplicated files under a user input dir or dirs.
+.br
+.P
+When first run the prgram installs a file in $HOME/config/duplicates/excludes.conf
+.br
+.B NB
+If at configuration time you used '.configure --prefix somedir' rather
+than accepting the default
+/usr/local, you will be interrogated as to what prefix you actually used.
+Once that has been resolved, and the excludes.conf file is installed as
+required you won't need to bother with this again.
+.br
+.P
+The initial content of $HOME/config/duplicates/excludes.conf suits the
+way I operate so I suggest you carefully review this file and edit it
+to suit your own needs.
+.br
+Regardless of the content of
+.I excludes.conf
+.B duplicates
+never considers zero length files.
+.br
+.B duplicates
+writes to
+.I stdout
+and sends error messages to
+.I stderr
+so here are some examples of using it:
+.br
+.P
+.B duplicates
+dir > dups.lst 2>
+.I broken.lst
+.br
+.B duplicates
+dir1 dir2 ... dirn >
+.I dups.lst
+2>
+.I broken.lst
+.B (future version.)
+.br
+.P
+The file dups.lst is in a format suitable for processing by
+.B processdups
+and broken.lst is suitable for processing by
+.B zapfiles (future)
+.P
+When redirecting
+.I stderr
+to a file e.g.,
+.I 2 > broken.lst,
+all errors will be collected in this
+file so it may be wise to:
+.br
+.B grep -v 'No such file'
+.I broken.lst
+to see what else has gone wrong, if anything.
+.br
+.P
+.B processdups
+is an interactive program to examine the output of
+.B duplicates
+and ask the user what should be done.
+.br
+.P
+The program runs in one of two modes, deletion mode like this:
+.br
+.B processdups
+dups.lst
+.br
+or link mode, like this:
+.br
+.B processdups
+-l dups.lst
+.br
+.P
+Example in delete mode:
+.br
+	MD5SUM: 76943eb0b82febaaa0d163d36b1cbebf
+.br
+ 0../Distrib/.deps/duplicates.Po  81828 f
+.br
+ 1../Local/.deps/duplicates.Po  82764 f
+.br
+Enter the path number to preserve, will DELETE others:
+.br
+(Enter -1 to ignore this group.)
+.br
+(Enter -5 to delete all of this group.)
+.br
+(Enter any other number to quit.)
+.br
+.P
+Example in link mode:
+.br
+	MD5SUM: 76943eb0b82febaaa0d163d36b1cbebf
+.br
+ 0../Distrib/.deps/duplicates.Po  81828 f
+.br
+ 1../Local/.deps/duplicates.Po  82764 f
+.br
+Enter the path number to preserve, will LINK others to that:
+.br
+(Enter -1 to ignore this group.)
+.br
+(Enter -5 to delete all of this group.)
+.br
+(Enter any other number to quit.)
+.br
+.P
+Whether in link or delete mode choosing -1 or -5 the action will be the same.
+The other effect to consider is that when you exit by using some number
+that has no meaning in context, e.g., 99, the input file say, dups.lst
+will be rewritten with the duplicated sets viewed already dumped. You
+can avoid this behaviour by using Ctrl-C if required.
+.SH "SEE ALSO"
+duplicates(1), processdups(1), zapfiles(1), brokensym(1), bigfiles(1),
+oldfiles(1)
+

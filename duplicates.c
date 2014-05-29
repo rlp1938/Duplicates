@@ -61,7 +61,7 @@ char *getcluster(char *path, int depth);
 void firstrun(void);
 char *getconfigpath(void);
 char **mem2strlist(char *from, char *to);
-
+void getprefix_from_user(char *sharefile);
 
 
 
@@ -69,10 +69,6 @@ char *helptext = "\n\tUsage: duplicates [option] dir_to_search\n"
   "\n\tOptions:\n"
   "\t-h outputs this help message.\n"
   "\t-d debug mode, don't discard temporary work files.\n"
-  "\t-p prefix. If you used any prefix other than the default when\n"
-  "\t   you ./configure the build you must enter that prefix using\n"
-  "\t   this option on the first run of the program. The option is not\n"
-  "\t   required or effective on subsequent runs.\n"
   "\t-v each invocation increases verbosity, default is 0\n"
   "\t\t0, emit no progress information.\n"
   "\t\t1, emit information of each new section started.\n"
@@ -121,7 +117,7 @@ int main(int argc, char **argv)
 
 	eol = "\n";	// string in case I ever want to do Microsoft
 
-	while((opt = getopt(argc, argv, ":hvdc:p:")) != -1) {
+	while((opt = getopt(argc, argv, ":hvdc:")) != -1) {
 		switch(opt){
 		case 'h':
 			help_print(0);
@@ -131,10 +127,6 @@ int main(int argc, char **argv)
 		break;
 		case 'c':
 			clusterdepth = atoi(optarg);
-		break;
-		case 'p':
-			free(prefix);
-			prefix = dostrdup(optarg);
 		break;
 		case 'v':
 			verbosity++;	// 4 levels of verbosity, 0-3. 0 no progress
@@ -675,6 +667,14 @@ void firstrun(void)
 			strcat(sharefile, "/");
 		}
 		strcat(sharefile, "duplicates/excludes.conf");
+		// check that it exists in /usr/local/share/
+		if (stat(sharefile, &sb) == -1) {
+			strcpy(sharefile, "/usr/share/");
+			strcat(sharefile, "duplicates/excludes.conf");
+			if (stat(sharefile, &sb)== -1) {
+				getprefix_from_user(sharefile);
+			}
+		}
 		fpi = dofopen(sharefile, "r");
 		strcat(userhome, "excludes.conf");
 		fpo = dofopen(userhome, "w");
@@ -776,3 +776,40 @@ char **mem2strlist(char *from, char *to)
 	}
 	return vlist;
 } // mem2strlist()
+
+void getprefix_from_user(char *sharefile)
+{
+	char ans[FILENAME_MAX];
+	struct stat sb;
+	char *cp;
+
+	fputs("I cannot find a configuration file 'duplicates/excludes'\n"
+	"in either '/usr/share/' or '/usr/local/share/' !\n"
+	"It seems that you have installed to a non-standard path by using\n"
+	"./configure --prefix=somedir\n"
+	,stdout);
+	fputs("Please enter the name you used to configure: ", stderr);
+	cp = fgets(ans, FILENAME_MAX, stdin);
+	if(!(cp)){	// only to stop gcc bitching
+		perror("fgets");
+	}
+	// wipe out trailing '\n'
+	cp = ans;
+	while (*cp != '\n') cp++;
+	*cp = '\0';
+	if (ans[strlen(ans)-1] != '/') strcat(ans, "/");
+	strcat(ans, "share/duplicates/excludes.conf");
+	while (stat(ans, &sb) == -1) {
+		fprintf(stderr, "No such file: %s\nPlease try again: ", ans);
+		cp = fgets(ans, FILENAME_MAX, stdin);
+		if(!(cp)){	// only to stop gcc bitching
+			perror("fgets");
+		}
+		cp = ans;
+		while(*cp != '\n') cp++;
+		*cp = '\0';
+		if (ans[strlen(ans)-1] != '/') strcat(ans, "/");
+		strcat(ans, "share/duplicates/excludes.conf");
+	}
+	strcpy(sharefile, ans);
+} // getprefix_from_user()
