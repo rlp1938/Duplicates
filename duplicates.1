@@ -3,24 +3,17 @@
 .B duplicates
 \- Generate a list of duplicated files in user input dir.
 .SH SYNOPSIS
-duplicates dir > dups.lst
+duplicates \fIdir [dir ...]\fR > \fIdups.lst\fR
 .br
-duplicates dir > dups.lst 2> broken_links
+duplicates \fIdir [dir ...]\fR > \fIdups.lst\fR 2> \fIbroken_links\fR
 .br
 .SH OPTIONS
--h, prints a brief help message.
-.br
--d, don't delete the workfiles in /tmp
-.br
--p, prefix. If when you ./configure the build of this program you used
-.br
-a prefix other the default, you will need to name that path here on the
-.br
-first run of the program. This option is never needed or even useful on
-.br
-subsequent runs.
-.br
--v, each invocation increases verbosity, default is 0.
+.TP
+\-h, prints a brief help message.
+.TP
+\-d, don't delete the workfiles in\fI/tmp\fR
+.TP
+\-v, each invocation increases verbosity, default is 0.
 .br
 .RS
 0, emit no progress information.
@@ -36,11 +29,11 @@ subsequent runs.
 .br
 You probably do not want to use this option when you are redirecting
 .br
-stderr to a file. Eg 2> errors_file
+\fIstderr\fR to a file. Eg 2> \fIerrors_file\fR
 .SH DESCRIPTION
 When run to conclusion a total of 8 workfiles will be created in /tmp.
 .br
-The filenames are of the form $USERduplicates0 .. $USERduplicates7.
+The filenames are of the form \fI$USERduplicates0\fR .. \fI$USERduplicates7\fR
 .br
 The program works by sorting md5sum, inode number, then pathname of
 .br
@@ -62,20 +55,17 @@ copying of directories. Consequently I sort the results by group, based
 .br
 on the most signifcant part of the path name of the first item of the
 .br
-replicated group. This result is sent to stdout.
+replicated group. This result is sent to \fIstdout.\fR
 .br
-Errors where they occur are sent to stderr as also is the result of
+Errors where they occur are sent to \fIstderr\fR as also is the result of
 .br
 of selecting any level of verbosity.
 .br
 NB zero length files are never taken into account in this program.
 .br
 .SH VERSION
-This documentation describes
-.B duplicates
-version 1.0.2
+This documentation describes \fBduplicates\fR version 1.0.2
 .SH "SEE ALSO"
-brokensym(1), bigfiles(1)
+bigfiles(1), brokensym(1), oldfiles(1), processdups(1), zapfiles(1),
+cleanuputils(7)
 .br
-.SH AUTHOR
-Robert L (Bob) Parker <rlp1938@gmail.com>

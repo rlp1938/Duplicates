@@ -38,6 +38,9 @@ int filecount;
 
 char *prefix;
 
+char *pathend = "!*END*!";	// Anyone who puts shit like that in a
+							// filename deserves what happens.
+
 struct filedata {
     char *from; // start of file content
     char *to;   // last byte of data + 1
@@ -151,19 +154,6 @@ int main(int argc, char **argv)
 		fprintf(stderr, "No directory provided\n");
 		help_print(1);
 	}
-
-	// 2. Check that the dir exists.
-	if ((stat(argv[optind], &sb)) == -1){
-		perror(argv[optind]);
-		help_print(EXIT_FAILURE);
-	}
-
-	// 3. Check that this is a dir
-	if (!(S_ISDIR(sb.st_mode))) {
-		fprintf(stderr, "Not a directory: %s\n", argv[optind]);
-		help_print(EXIT_FAILURE);
-	}
-
 	// generate my workfile names
 	sprintf(command, "/tmp/%sduplicates0", getenv("USER"));
 	workfile0 = dostrdup(command);
@@ -192,20 +182,36 @@ int main(int argc, char **argv)
 	// turn the exclusions file into an array of strings
 	vlist = mem2strlist(fdat.from, fdat.to);
 
-
+	// open the output workfile
+	fpo = dofopen(workfile0, "w");
 	// Step 0 - list the files
 	if (verbosity){
 		fputs("Generating list of files and symlinks\n",stderr);
 	}
-	topdir = argv[optind];
-	{
-		// get rid of trailing '/'
-		int len = strlen(topdir);
-		if (topdir[len-1] == '/') topdir[len-1] = '\0';
-	}
-	fpo = dofopen(workfile0, "w");
-	recursedir(topdir, fpo, vlist);
+
+	while (argv[optind]) {
+		// Check that the dir exists.
+		if ((stat(argv[optind], &sb)) == -1){
+			perror(argv[optind]);
+			help_print(EXIT_FAILURE);
+		}
+
+		// Check that this is a dir
+		if (!(S_ISDIR(sb.st_mode))) {
+			fprintf(stderr, "Not a directory: %s\n", argv[optind]);
+			help_print(EXIT_FAILURE);
+		}
+		topdir = argv[optind];
+		{
+			// get rid of trailing '/'
+			int len = strlen(topdir);
+			if (topdir[len-1] == '/') topdir[len-1] = '\0';
+		}
+		recursedir(topdir, fpo, vlist);
+		optind++;
+	} // while(argv[optind])
 	fclose(fpo);
+
 	// Now sort them
 	if (verbosity){
 		fputs("Sorting list of files\n", stderr);
@@ -221,7 +227,6 @@ int main(int argc, char **argv)
 		perror(command);
 		exit(EXIT_FAILURE);
 	}
-
 	// Step1: Traverse the list of files in workfile1 calculating MD5
 	if (verbosity){
 		fputs("Calculating md5sums\n", stderr);
@@ -232,19 +237,16 @@ int main(int argc, char **argv)
 		struct stat sb;
 		clipeol(buf1);
 		char *cp;
-		//cp = strrchr(buf1, ' ');
-		cp = strstr(buf1, " f");
-		if (!(cp)) cp = strstr(buf1, " s");
+		cp = strstr(buf1, pathend);
 		*cp = '\0';	// end of the file path
-		//fprintf(stderr, "%s\n", buf1);	// TODO - verbosity levels
-		cp++;	// now looking at the file type, s|f
+		cp += strlen(pathend) + 1;	// now looking at the file type, s|f
 		if (stat(buf1, &sb) == -1){
 			perror(buf1);	// just report it.
 		} else {
 			int report;
 			char *thesum = domd5sum(buf1);
-			fprintf(fpo, "%s %lu %c %s\n", thesum,
-				sb.st_ino, *cp, buf1);
+			fprintf(fpo, "%s %lu %c %s%s\n", thesum,
+				sb.st_ino, *cp, buf1, pathend);
 			// NB in the case of a symlink, sb.st_ino is the inode of
 			// the target, not the inode of the link itself.
 			filecount++;
@@ -322,10 +324,12 @@ int main(int argc, char **argv)
 			// maybe a duplicate or just multiple link
 			if (hr1.ino != hr2.ino) {
 				// genuine duplication, write both lines out
-				fprintf(fpo, "%s %lu %c %s\n",
-						hr1.thesum, hr1.ino, hr1.ftyp, hr1.path);
-				fprintf(fpo, "%s %lu %c %s\n",
-						hr2.thesum, hr2.ino, hr2.ftyp, hr2.path);
+				fprintf(fpo, "%s %lu %c %s%s\n",
+						hr1.thesum, hr1.ino, hr1.ftyp, hr1.path,
+							pathend);
+				fprintf(fpo, "%s %lu %c %s%s\n",
+						hr2.thesum, hr2.ino, hr2.ftyp, hr2.path,
+							pathend);
 
 			}
 		}
@@ -339,7 +343,6 @@ int main(int argc, char **argv)
 	}
 	fclose(fpo);
 	fclose(fpi);
-
 	// Step 4, use sort to get rid of duplicated lines
 	if (verbosity){
 		fputs("Discarding duplicated pathnames\n", stderr);
@@ -351,7 +354,6 @@ int main(int argc, char **argv)
 		perror(command);
 		exit(EXIT_FAILURE);
 	}
-
 	// Step 5, group the duplicates by one pathname
 	if (verbosity){
 		fputs("Setting logical group names on every line\n",
@@ -393,7 +395,6 @@ int main(int argc, char **argv)
 
 	fclose(fpo);
 	fclose(fpi);
-
 	// Step 6, sort the mess by groupname
 	if (verbosity){
 		fputs("Sort on logical group names.\n",
@@ -415,11 +416,12 @@ int main(int argc, char **argv)
 	fpi = dofopen(workfile7, "r");
 	// fpofinal has been dealt with at options processing time.
 	while((fgets(buf1, 2 * PATH_MAX, fpi))) {
-		line1 = strchr(buf1, ' ');	// first space
-		line1++;	// now looking at md5sum
+		line1 = strstr(buf1, pathend);	// sentinel
+		line1 += strlen(pathend);
+		while(*line1 == ' ') line1++;	// now looking at md5sum
 		hr1 = parse_line(line1);
-		fprintf(fpofinal, "%s %s %lu %c\n",
-					hr1.path, hr1.thesum, hr1.ino, hr1.ftyp);
+		fprintf(fpofinal, "%s%s %s %lu %c\n",
+					hr1.path, pathend, hr1.thesum, hr1.ino, hr1.ftyp);
 	} // while()
 
 	sync();
@@ -480,7 +482,7 @@ void recursedir(char *headdir, FILE *fpo, char **vlist)
 		switch(de->d_type) {
 			char newpath[FILENAME_MAX];
 			struct stat sb;
-			char ftyp;
+			char *ftyp;
 			// Nothing to do for these.
 			case DT_BLK:
 			case DT_CHR:
@@ -497,7 +499,7 @@ void recursedir(char *headdir, FILE *fpo, char **vlist)
 				break;
 			}
 			if (sb.st_size == 0) break;	// no interest in 0 length files
-			ftyp = 's';
+			ftyp = "s";
 			goto REG_LNK_common;
 			case DT_REG:
 			strcpy(newpath, headdir);
@@ -508,7 +510,7 @@ void recursedir(char *headdir, FILE *fpo, char **vlist)
 				break;
 			}
 			if (sb.st_size == 0) break;	// no interest in 0 length files
-			ftyp = 'f';
+			ftyp = "f";
 REG_LNK_common:
 			// check our excludes
 			want = 1;
@@ -521,7 +523,7 @@ REG_LNK_common:
 				index++;
 			}
 			if(want){
-				fprintf(fpo, "%s %c \n", newpath, ftyp );
+				fprintf(fpo, "%s%s %s\n", newpath, pathend, ftyp );
 			}
 			break;
 			case DT_DIR:
@@ -600,8 +602,8 @@ struct hashrecord parse_line(char *line)
 	hr.ftyp = *cp;
 	cp++;	cp++;	// now looking at the path
 	strcpy(hr.path, cp);
-	cp = strchr(hr.path, '\n');
-	if (cp) *cp = '\0';
+	cp = strstr(hr.path, pathend);
+	*cp = '\0';
 	return hr;
 } // parseline()
 
@@ -630,14 +632,23 @@ char *getcluster(char *path, int depth)
 	int count = 0;
 	target = depth -1;
 	strcpy(buf, path);
-	cp = strchr(buf, '\n');
-	if (cp) *cp = '\0';
+	cp = strstr(buf, pathend);
+	*cp = '\0';
 	cp = buf;
+	// start our search for '/' after any leading junk that has one
+	if (strncmp(cp, "../", 3) == 0) {
+		cp += 3;
+	} else if (strncmp(cp, "./", 2) == 0) {
+		cp += 2;
+	} else if (*cp == '/') {
+		cp++;
+	}
 	while ((cp = strchr(cp, '/')) && (count < target)) {
 		count++;
 		cp++;
 	}
 	if (cp) *cp = '\0';
+	strcat(buf, pathend);
 	return buf;
 } // getcluster()
 
