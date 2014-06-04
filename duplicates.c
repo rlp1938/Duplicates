@@ -89,7 +89,7 @@ int clusterdepth;
 
 int main(int argc, char **argv)
 {
-	int opt, result, verbosity, delworks;
+	int opt, result, verbosity, delworks, vlindex;
 	struct stat sb;
 	struct fdata fdat;
 	char *workfile0;
@@ -211,6 +211,13 @@ int main(int argc, char **argv)
 		optind++;
 	} // while(argv[optind])
 	fclose(fpo);
+	// free the vlist items
+	vlindex = 0;
+	while(vlist[vlindex]) {
+		free(vlist[vlindex]);
+		vlindex++;
+	}
+	free(vlist);
 
 	// Now sort them
 	if (verbosity){
