@@ -34,12 +34,12 @@
 #include "fileutil.h"
 #include <ctype.h>
 
-int filecount;
+static int filecount;
 
-char *prefix;
+static char *prefix;
 
-char *pathend = "!*END*!";	// Anyone who puts shit like that in a
-							// filename deserves what happens.
+static const char *pathend = "!*END*!";	// Anyone who puts shit like that in a
+					// filename deserves what happens.
 
 struct filedata {
     char *from; // start of file content
@@ -53,22 +53,22 @@ struct hashrecord {
 	char path[PATH_MAX];
 };
 
-void help_print(int forced);
-char *dostrdup(const char *s);
-void recursedir(char *headdir, FILE *fpo, char **vlist);
-char *domd5sum(const char *pathname);
-struct hashrecord parse_line(char *line);
-void clipeol(char *line);
-char *thepathname(char *line);
-char *getcluster(char *path, int depth);
-void firstrun(void);
-char *getconfigpath(void);
-char **mem2strlist(char *from, char *to);
-void getprefix_from_user(char *sharefile);
+static void help_print(int forced);
+static char *dostrdup(const char *s);
+static void recursedir(char *headdir, FILE *fpo, char **vlist);
+static char *domd5sum(const char *pathname);
+static struct hashrecord parse_line(char *line);
+static void clipeol(char *line);
+static char *thepathname(char *line);
+static char *getcluster(char *path, int depth);
+static void firstrun(void);
+static char *getconfigpath(void);
+static char **mem2strlist(char *from, char *to);
+static void getprefix_from_user(char *sharefile);
 
 
 
-char *helptext = "\n\tUsage: duplicates [option] dir_to_search\n"
+static const char *helptext = "\n\tUsage: duplicates [option] dir_to_search\n"
   "\n\tOptions:\n"
   "\t-h outputs this help message.\n"
   "\t-d debug mode, don't discard temporary work files.\n"
@@ -83,8 +83,8 @@ char *helptext = "\n\tUsage: duplicates [option] dir_to_search\n"
   ;
 
 
-char *eol; // string in case I ever want to do Microsoft
-int clusterdepth;
+static char *eol; // string in case I ever want to do Microsoft
+static int clusterdepth;
 
 
 int main(int argc, char **argv)
