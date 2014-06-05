@@ -92,6 +92,7 @@ int main(int argc, char **argv)
 	int opt, result, verbosity, delworks, vlindex;
 	struct stat sb;
 	struct fdata fdat;
+	char *from, *to;
 	char *workfile0;
 	char *workfile1;
 	char *workfile2;
@@ -100,6 +101,8 @@ int main(int argc, char **argv)
 	char *workfile5;
 	char *workfile6;
 	char *workfile7;
+	char *workfile8;
+
 	char command[FILENAME_MAX];
 	FILE *fpo, *fpi, *fpofinal;
 	char *line1, *line2, *line3;
@@ -171,6 +174,8 @@ int main(int argc, char **argv)
 	workfile6 = dostrdup(command);
 	sprintf(command, "/tmp/%sduplicates7", getenv("USER"));
 	workfile7 = dostrdup(command);
+	sprintf(command, "/tmp/%sduplicates8", getenv("USER"));
+	workfile8 = dostrdup(command);
 
 	// get my exclusions file
 	efl = getconfigpath();
@@ -211,6 +216,7 @@ int main(int argc, char **argv)
 		optind++;
 	} // while(argv[optind])
 	fclose(fpo);
+
 	// free the vlist items
 	vlindex = 0;
 	while(vlist[vlindex]) {
@@ -234,26 +240,75 @@ int main(int argc, char **argv)
 		perror(command);
 		exit(EXIT_FAILURE);
 	}
-	// Step1: Traverse the list of files in workfile1 calculating MD5
+
+	// look through the sorted workfile and discard those that have
+	// unique sizes
+	fdat = readfile(workfile1, 0, 1);
+	from = fdat.from;
+	to = fdat.to;
+	fpo = dofopen(workfile2, "w");
+	line1 = from;
+	// replace '\n' with '\0'
+	while(line1 < to) {
+		line1 = memchr(line1, '\n', PATH_MAX);
+		if (line1) *line1 = '\0';
+		line1++;	// at next line
+	}
+	line1 = from;
+	while(line1 < to) {
+		unsigned long s1, s2;
+		s1 = atol(line1);
+		line2 = line1 + strlen(line1) +1;
+		s2 = atol(line2);
+		while (s2 == s1 && line2 < to) {
+			line2 += strlen(line2) +1;
+			s2 = atol(line2);
+		}
+		line3 = line2;	// no longer equal
+		line2 = line1;	// top of this group
+		while (line2 < line3){
+			fprintf(fpo, "%s\n", line2);
+			line2 += strlen(line2) +1;
+		}
+		line1 = line3;	// top of next group or unique
+	}
+	fclose(fpo);
+	free(from);
+
+	sprintf(command, "sort -u %s > %s",
+						workfile2, workfile3);
+	result = system(command);
+	if(result == -1){
+		perror(command);
+		exit(EXIT_FAILURE);
+	}
+
+	exit(0);
+
+	// Traverse the list of files in workfile1 calculating MD5
 	if (verbosity){
 		fputs("Calculating md5sums\n", stderr);
 	}
-	fpi = dofopen(workfile1, "r");
-	fpo = dofopen(workfile2, "w");
+	fpi = dofopen(workfile3, "r");
+	fpo = dofopen(workfile4, "w");
 	while (fgets(buf1, PATH_MAX, fpi)){
+		char *p, *cp;
 		struct stat sb;
 		clipeol(buf1);
-		char *cp;
-		cp = strstr(buf1, pathend);
+		// find the path beginning
+		p = buf1;
+		while(isdigit(p)) p++;
+		while(*p == ' ') p++;
+		cp = strstr(p, pathend);
 		*cp = '\0';	// end of the file path
 		cp += strlen(pathend) + 1;	// now looking at the file type, s|f
-		if (stat(buf1, &sb) == -1){
-			perror(buf1);	// just report it.
+		if (stat(p, &sb) == -1){
+			perror(p);	// just report it.
 		} else {
 			int report;
-			char *thesum = domd5sum(buf1);
+			char *thesum = domd5sum(p);
 			fprintf(fpo, "%s %lu %c %s%s\n", thesum,
-				sb.st_ino, *cp, buf1, pathend);
+				sb.st_ino, *cp, p, pathend);
 			// NB in the case of a symlink, sb.st_ino is the inode of
 			// the target, not the inode of the link itself.
 			filecount++;
@@ -280,13 +335,13 @@ int main(int argc, char **argv)
 	fclose(fpi);
 	fclose(fpo);
 
-	// Step 2; sort the resultant file of sums + paths
+	// Sort the resultant file of sums + paths
 	if (verbosity){
 		fputs("Sorting on md5sum, inode, path\n", stderr);
 	}
 
 	sprintf(command, "sort %s > %s",
-						workfile2, workfile3);
+						workfile4, workfile5);
 	result = system(command);
 	if(result == -1){
 		perror(command);
@@ -530,7 +585,8 @@ REG_LNK_common:
 				index++;
 			}
 			if(want){
-				fprintf(fpo, "%s%s %s\n", newpath, pathend, ftyp );
+				fprintf(fpo, "%lu %s%s %s\n", sb.st_size, newpath,
+						pathend, ftyp );
 			}
 			break;
 			case DT_DIR:
