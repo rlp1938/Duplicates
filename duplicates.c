@@ -38,8 +38,9 @@ static int filecount;
 
 static char *prefix;
 
-static const char *pathend = "!*END*!";	// Anyone who puts shit like that in a
-					// filename deserves what happens.
+static const char *pathend = "!*END*!";	// Anyone who puts shit like
+										// that in a filename deserves
+										// what happens.
 
 struct filedata {
     char *from; // start of file content
@@ -102,6 +103,7 @@ int main(int argc, char **argv)
 	char *workfile6;
 	char *workfile7;
 	char *workfile8;
+	char *workfile9;
 
 	char command[FILENAME_MAX];
 	FILE *fpo, *fpi, *fpofinal;
@@ -176,6 +178,8 @@ int main(int argc, char **argv)
 	workfile7 = dostrdup(command);
 	sprintf(command, "/tmp/%sduplicates8", getenv("USER"));
 	workfile8 = dostrdup(command);
+	sprintf(command, "/tmp/%sduplicates9", getenv("USER"));
+	workfile9 = dostrdup(command);
 
 	// get my exclusions file
 	efl = getconfigpath();
@@ -260,21 +264,14 @@ int main(int argc, char **argv)
 		s1 = atol(line1);
 		line2 = line1 + strlen(line1) +1;
 		s2 = atol(line2);
-		while (s2 == s1 && line2 < to) {
-			line2 += strlen(line2) +1;
-			s2 = atol(line2);
+		if (s1 == s2) {
+			fprintf(fpo, "%s\n%s\n", line1, line2);
 		}
-		line3 = line2;	// no longer equal
-		line2 = line1;	// top of this group
-		while (line2 < line3){
-			fprintf(fpo, "%s\n", line2);
-			line2 += strlen(line2) +1;
-		}
-		line1 = line3;	// top of next group or unique
-	}
+		line1 = line2;	// this will create duplicated records
+	} // while()
 	fclose(fpo);
 	free(from);
-
+	// get rid of duplicated records.
 	sprintf(command, "sort -u %s > %s",
 						workfile2, workfile3);
 	result = system(command);
@@ -282,8 +279,6 @@ int main(int argc, char **argv)
 		perror(command);
 		exit(EXIT_FAILURE);
 	}
-
-	exit(0);
 
 	// Traverse the list of files in workfile1 calculating MD5
 	if (verbosity){
@@ -297,7 +292,7 @@ int main(int argc, char **argv)
 		clipeol(buf1);
 		// find the path beginning
 		p = buf1;
-		while(isdigit(p)) p++;
+		while(isdigit(*p)) p++;
 		while(*p == ' ') p++;
 		cp = strstr(p, pathend);
 		*cp = '\0';	// end of the file path
@@ -348,134 +343,116 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 
-	// Step 3 process the sorted work file
+	// Process the sorted work file
 	if (verbosity){
 		fputs("Discarding pathnames of unique files\n", stderr);
 	}
-	fpi = dofopen(workfile3, "r");
-	fpo = dofopen(workfile4, "w");
-	// Looking for duplicates, initialise the loop.
-	fgetsresult = fgets(buf1, PATH_MAX, fpi);
-	if(!(fgetsresult)) {
-		perror("fgets()");
-	} // did this to stop the compiler bitching
-
-	line1 = buf1;
-	line2 = buf2;
+	fdat = readfile(workfile5, 0, 1);
+	from = fdat.from;
+	to = fdat.to;
+	fpo = dofopen(workfile6, "w");
+	// turn the mess into a list of C strings
+	line1 = from;
+	while (line1 < to) {
+		line1 = memchr(line1, '\n', PATH_MAX);
+		if (line1) *line1 = '\0';
+		line1 += strlen(line1) + 1;
+	}
+	// output the duplicated lines
+	line1 = from;
 	hr1 = parse_line(line1);
-
-	while (fgets(line2, PATH_MAX, fpi)) {
-		/*
-		 * The job here is to determine what has been duplicated.
-		 * Very simply if the md5sums differ in line1 and line2,
-		 * there is no duplication. Just discard line1.
-		 * OTOH if the 2 md5sums match and also the inode number,
-		 * there is no duplication. (This fits for symlinks and hard
-		 * links). Likewise discard line1.
-		 * But a match on md5sums with no match on inode is a duplicate.
-		 * In this case report them both, then discard line1, and then
-		 * line2 becomes line1, rinse and repeat.
-		 * If we have more than a pair of duplicates, eg 3 called
-		 * instance1, ..2, ..3 for example, there will will 4 output
-		 * records instance1 paired with instance2, then ..2 paired
-		 * with ..3.
-		 * So I follow this with sort -u to discard the repeated ..2.
-		*/
+	while (line1 < to){
+		line2 = line1 + strlen(line1) + 1;	// looking at next line
+		if (!( line2 < to )) break;
 		hr2 = parse_line(line2);
-		if (strcmp(hr1.thesum, hr2.thesum) == 0) {
-			// maybe a duplicate or just multiple link
-			if (hr1.ino != hr2.ino) {
-				// genuine duplication, write both lines out
-				fprintf(fpo, "%s %lu %c %s%s\n",
-						hr1.thesum, hr1.ino, hr1.ftyp, hr1.path,
-							pathend);
-				fprintf(fpo, "%s %lu %c %s%s\n",
-						hr2.thesum, hr2.ino, hr2.ftyp, hr2.path,
-							pathend);
-
-			}
+		if ( strncmp(hr1.thesum, hr2.thesum, 32) == 0 &&
+				hr1.ino != hr2.ino ) {	// this is a duplicated copy
+			fprintf(fpo, "%s %lu %c %s%s\n", hr1.thesum, hr1.ino,
+							hr1.ftyp, hr1.path, pathend);
+			fprintf(fpo, "%s %lu %c %s%s\n", hr2.thesum, hr2.ino,
+							hr2.ftyp, hr2.path, pathend);
 		}
-		// at the end, exchange line1 and line2
-		{
-			char *tmp = line1;
-			line1 = line2;
-			line2 = tmp;
-		}
+		line1 = line2;	// a treble will cause 4 output lines etc.
 		hr1 = hr2;
 	}
 	fclose(fpo);
-	fclose(fpi);
+
 	// Step 4, use sort to get rid of duplicated lines
 	if (verbosity){
 		fputs("Discarding duplicated pathnames\n", stderr);
 	}
 	sprintf(command, "sort -u %s > %s",
-						workfile4, workfile5);
-	result = system(command);
-	if(result == -1){
-		perror(command);
-		exit(EXIT_FAILURE);
-	}
-	// Step 5, group the duplicates by one pathname
-	if (verbosity){
-		fputs("Setting logical group names on every line\n",
-				stderr);
-	}
-	fpi = dofopen(workfile5, "r");
-	fpo = dofopen(workfile6, "w");
-	line1 = &buf1[0];
-	line2 = &buf2[0];
-	fgetsresult = fgets(line1, PATH_MAX, fpi);
-	if(!(fgetsresult)) {
-		perror("fgets()");
-	} // did this to stop the compiler bitching
-	clipeol(line1);
-	line3 = thepathname(line1);
-	strcpy(clustername, getcluster(line3, clusterdepth));
-
-	while ((fgets(line2, PATH_MAX, fpi))) {
-		char *cp;
-		// I know that these are duplicated file names.
-		clipeol(line2);
-		fprintf(fpo, "%s %s\n", clustername, line1);
-		while (strncmp(line1, line2, 32) == 0) {
-			fprintf(fpo, "%s %s\n", clustername, line2);
-			cp = fgets(line2, PATH_MAX, fpi);
-			if(!(cp)) break;
-			clipeol(line2);
-		}
-		// exchange line1 and line2 now
-		{
-			char *tmp = line1;
-			line1 = line2;
-			line2 = tmp;
-		}
-		// new clustername
-		line3 = thepathname(line1);
-		strcpy(clustername, line3);
-	} // while()
-
-	fclose(fpo);
-	fclose(fpi);
-	// Step 6, sort the mess by groupname
-	if (verbosity){
-		fputs("Sort on logical group names.\n",
-				stderr);
-	}
-	sprintf(command, "sort %s > %s",
 						workfile6, workfile7);
 	result = system(command);
 	if(result == -1){
 		perror(command);
 		exit(EXIT_FAILURE);
 	}
+	// Group the duplicates by one pathname
+	if (verbosity){
+		fputs("Setting logical group names on every line\n",
+				stderr);
+	}
+	fpi = dofopen(workfile7, "r");
+	fpo = dofopen(workfile8, "w");
+	line1 = buf1;
+	line2 = buf2;
+	fgetsresult = fgets(line1, PATH_MAX, fpi);
+	if(!(fgetsresult)) {
+		perror("fgets()");
+	} // did this to stop the compiler bitching
+	clipeol(line1);
+	eol = strstr(line1, pathend);
+	if (eol) *eol = '\0';
+	line3 = dostrdup(thepathname(line1));
+	strcpy(clustername, getcluster(line3, clusterdepth));
 
-	// Step 7, format the results for the user
+	while ((fgets(line2, PATH_MAX, fpi))) {
+		char *cp;
+		// I know that these are duplicated file names.
+		clipeol(line2);
+		eol = strstr(line2, pathend);
+		if (eol) *eol = '\0';
+		eol = strstr(line1, pathend);
+		if (eol) *eol = '\0';
+		fprintf(fpo, "%s %s%s\n", clustername, line1, pathend);
+		while (strncmp(line1, line2, 32) == 0) {
+			eol = strstr(line2, pathend);
+			if(eol) *eol = '\0';
+			fprintf(fpo, "%s %s%s\n", clustername, line2, pathend);
+			cp = fgets(line2, PATH_MAX, fpi);
+			if(!(cp)) break;
+			clipeol(line2);
+		}
+
+		// line2 does not match on hash so it becomes line1
+		line1 = line2;
+		if(line3) free(line3);
+		line3 = dostrdup(thepathname(line1));
+		strcpy(clustername, getcluster(line3, clusterdepth));
+	} // while()
+
+	fclose(fpo);
+	fclose(fpi);
+	// Sort the mess by groupname
+	if (verbosity){
+		fputs("Sort on logical group names.\n",
+				stderr);
+	}
+	sprintf(command, "sort %s > %s",
+						workfile8, workfile9);
+	result = system(command);
+	if(result == -1){
+		perror(command);
+		exit(EXIT_FAILURE);
+	}
+
+	// Format the results for the user
 	if (verbosity){
 		fputs("Send the results to stdout.\n",
 				stderr);
 	}
-	fpi = dofopen(workfile7, "r");
+	fpi = dofopen(workfile9, "r");
 	// fpofinal has been dealt with at options processing time.
 	while((fgets(buf1, 2 * PATH_MAX, fpi))) {
 		line1 = strstr(buf1, pathend);	// sentinel
@@ -500,6 +477,9 @@ int main(int argc, char **argv)
 		unlink(workfile5);
 		unlink(workfile6);
 		unlink(workfile7);
+		unlink(workfile8);
+		unlink(workfile9);
+
 	}
 
 	return 0;
@@ -666,9 +646,9 @@ struct hashrecord parse_line(char *line)
 	cp++;	cp++;	// now looking at the path
 	strcpy(hr.path, cp);
 	cp = strstr(hr.path, pathend);
-	*cp = '\0';
+	if (cp) *cp = '\0';
 	return hr;
-} // parseline()
+} // parse_line()
 
 void clipeol(char *line)
 {
@@ -681,9 +661,16 @@ void clipeol(char *line)
 
 char *thepathname(char *line)
 {
-	char *cp;
-	cp = strrchr(line, ' ');
-	cp++;	// first non space after
+	// <md5sum> <inode> <ftyp> <pathname><pathend>
+	char *cp, *eop;
+	cp = line + 32;
+	while (*cp == ' ') cp++;	// hash
+	while (isdigit(*cp)) cp++;	// inode
+	while (*cp == ' ') cp++;	// ftyp
+	cp++;	// space after ftyp
+	while (*cp == ' ') cp++;	// path
+	eop = strstr(cp, pathend);
+	if (eop) *eop = '\0';
 	return cp;
 } // thepathname()
 
@@ -693,10 +680,8 @@ char *getcluster(char *path, int depth)
 	char *cp;
 	int target;
 	int count = 0;
-	target = depth -1;
+	target = depth;
 	strcpy(buf, path);
-	cp = strstr(buf, pathend);
-	*cp = '\0';
 	cp = buf;
 	// start our search for '/' after any leading junk that has one
 	if (strncmp(cp, "../", 3) == 0) {
