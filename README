@@ -1,10 +1,11 @@
 Readme for program duplicates.
 
 The essence of the thing is that it takes the md5sum of all files in the
-directory input by the user and then sorts the result by md5 hash, then
-inode number (ascii format), then path to the file. Files with differing
-hashes are not duplicates, nor are files with identical hashes and the
-same inode number. The later are either hard linked or symlinked.
+directory input by the user, except those that have a unique file size,
+and then sorts the result by md5 hash, then inode number (ascii format),
+then path to the file. Files with differing hashes are not duplicates,
+nor are files with identical hashes and the same inode number. The
+latter are either hard linked or symlinked.
 
 Once the data lines that represent unique files are discarded the result
 is then sorted into groups to make analysis of the origin of the
