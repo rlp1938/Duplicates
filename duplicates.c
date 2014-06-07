@@ -593,16 +593,16 @@ char *domd5sum(const char *pathname)
 
 	static char c[33];	// length of md5sum string + 1
 	int i, hashsize, bytesread;
-    struct md5_ctx ctx;
-    unsigned char buffer[1048576];
-    unsigned char hash[16];
-    char *tmp;
-    FILE *fpi;
+	struct md5_ctx ctx;
+	unsigned char buffer[1048576];
+	unsigned char hash[16];
+	char *tmp;
+	FILE *fpi;
 
-    fpi = dofopen(pathname, "r");
-    c[0] = '\0';
+	fpi = dofopen(pathname, "r");
+	c[0] = '\0';
 
-    md5_init_ctx (&ctx);
+	md5_init_ctx (&ctx);
 
 	while ((bytesread = fread(&buffer, 1, 1048576, fpi)) > 0) {
 		if ((bytesread % 64) == 0) {
@@ -617,11 +617,11 @@ char *domd5sum(const char *pathname)
 	hashsize = 16;
 	tmp = &c[0];
 	/*TODO just unroll the loop below */
-    for (i = 0; i < hashsize; i++) {
-           sprintf(tmp, "%.2x", hash[i]);
-        tmp += 2;
-    }
-    c[32] = '\0';
+	for (i = 0; i < hashsize; i++) {
+		sprintf(tmp, "%.2x", hash[i]);
+		tmp += 2;
+	}
+	c[32] = '\0';
 	fclose(fpi);
 	return c;
 } // domd5sum()
