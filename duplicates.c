@@ -427,7 +427,7 @@ int main(int argc, char **argv)
 
 		// line2 does not match on hash so it becomes line1
 		line1 = line2;
-		if(line3) free(line3);
+		free(line3);
 		line3 = dostrdup(thepathname(line1));
 		strcpy(clustername, getcluster(line3, clusterdepth));
 	} // while()
