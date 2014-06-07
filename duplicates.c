@@ -258,9 +258,9 @@ int main(int argc, char **argv)
 	line1 = from;
 	while(line1 < to) {
 		unsigned long s1, s2;
-		s1 = atol(line1);
+		s1 = strtoul(line1, NULL, 10);
 		line2 = line1 + strlen(line1) +1;
-		s2 = atol(line2);
+		s2 = strtoul(line2, NULL, 10);
 		if (s1 == s2) {
 			fprintf(fpo, "%s\n%s\n", line1, line2);
 		}
@@ -593,7 +593,8 @@ char *domd5sum(const char *pathname)
 	/* calculate md5sum of file in pathname */
 
 	static char c[33];	// length of md5sum string + 1
-	int i, hashsize, bytesread;
+	int i, hashsize;
+        size_t bytesread;
 	struct md5_ctx ctx;
 	unsigned char buffer[1048576];
 	unsigned char hash[16];
@@ -770,7 +771,7 @@ char **mem2strlist(char *from, char *to)
 	char **vlist;
 	char *cp, *tp, *bp;
 	int cmnt = 0;
-	int count = 0;
+	unsigned count = 0;
 	int i;
 	char buf[PATH_MAX];
 
