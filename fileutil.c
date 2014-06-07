@@ -26,6 +26,7 @@ struct fdata readfile(const char *filename, off_t extra, int fatal)
 	off_t bytesread;
 	char *from, *to;
 	struct fdata data;
+	struct stat sb;
 
 	if (stat(filename, &sb) == -1) {
 		if (fatal){
