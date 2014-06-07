@@ -91,7 +91,6 @@ static int clusterdepth;
 int main(int argc, char **argv)
 {
 	int opt, verbosity, delworks, vlindex;
-	struct stat sb;
 	struct fdata fdat;
 	char *from, *to;
 	char *workfile0;
@@ -199,6 +198,8 @@ int main(int argc, char **argv)
 	}
 
 	while (argv[optind]) {
+		struct stat sb;
+
 		// Check that the dir exists.
 		if ((stat(argv[optind], &sb)) == -1){
 			perror(argv[optind]);
