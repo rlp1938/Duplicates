@@ -431,6 +431,7 @@ int main(int argc, char **argv)
 		line3 = dostrdup(thepathname(line1));
 		strcpy(clustername, getcluster(line3, clusterdepth));
 	} // while()
+        free(line3);
 
 	fclose(fpo);
 	fclose(fpi);

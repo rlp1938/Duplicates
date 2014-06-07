@@ -54,6 +54,9 @@ struct fdata readfile(const char *filename, off_t extra, int fatal)
 		perror("fread");
 		exit(EXIT_FAILURE);
 	}
+
+        fclose (fpi);
+
 	to = from + bytesread + extra;
 	// zero the extra space
 	memset(from+bytesread, 0, to-(from+bytesread));
