@@ -398,9 +398,9 @@ int main(int argc, char **argv)
 	line1 = buf1;
 	line2 = buf2;
 	fgetsresult = fgets(line1, PATH_MAX, fpi);
-	if(!(fgetsresult)) {
+	if(!fgetsresult && ferror(fpi)) {
 		perror("fgets()");
-	} // did this to stop the compiler bitching
+	}
 	clipeol(line1);
 	eol = strstr(line1, pathend);
 	if (eol) *eol = '\0';
