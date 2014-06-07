@@ -25,14 +25,13 @@
 #include <unistd.h>
 #include <getopt.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <string.h>
-#include <errno.h>
 #include <dirent.h>
-#include "md5.h"
-#include "config.h"
-#include "fileutil.h"
 #include <ctype.h>
+#include <limits.h>
+
+#include "md5.h"
+#include "fileutil.h"
 
 static int filecount;
 

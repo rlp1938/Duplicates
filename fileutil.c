@@ -20,6 +20,9 @@
 
 #include "fileutil.h"
 
+#include <stdlib.h>
+#include <string.h>
+
 struct fdata readfile(const char *filename, off_t extra, int fatal)
 {
 	FILE *fpi;
