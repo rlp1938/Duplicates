@@ -56,6 +56,7 @@ struct hashrecord {
 
 static void help_print(int forced);
 static char *dostrdup(const char *s);
+static void  dosystem(const char *cmd);
 static void recursedir(char *headdir, FILE *fpo, char **vlist);
 static char *domd5sum(const char *pathname);
 static struct hashrecord parse_line(char *line);
@@ -90,7 +91,7 @@ static int clusterdepth;
 
 int main(int argc, char **argv)
 {
-	int opt, result, verbosity, delworks, vlindex;
+	int opt, verbosity, delworks, vlindex;
 	struct stat sb;
 	struct fdata fdat;
 	char *from, *to;
@@ -239,11 +240,7 @@ int main(int argc, char **argv)
 	}
 	sprintf(command, "sort %s > %s",
 						workfile0, workfile1);
-	result = system(command);
-	if(result == -1){
-		perror(command);
-		exit(EXIT_FAILURE);
-	}
+	dosystem(command);
 
 	// look through the sorted workfile and discard those that have
 	// unique sizes
@@ -274,11 +271,7 @@ int main(int argc, char **argv)
 	// get rid of duplicated records.
 	sprintf(command, "sort -u %s > %s",
 						workfile2, workfile3);
-	result = system(command);
-	if(result == -1){
-		perror(command);
-		exit(EXIT_FAILURE);
-	}
+	dosystem(command);
 
 	// Traverse the list of files in workfile1 calculating MD5
 	if (verbosity){
@@ -337,11 +330,7 @@ int main(int argc, char **argv)
 
 	sprintf(command, "sort %s > %s",
 						workfile4, workfile5);
-	result = system(command);
-	if(result == -1){
-		perror(command);
-		exit(EXIT_FAILURE);
-	}
+	dosystem(command);
 
 	// Process the sorted work file
 	if (verbosity){
@@ -383,11 +372,8 @@ int main(int argc, char **argv)
 	}
 	sprintf(command, "sort -u %s > %s",
 						workfile6, workfile7);
-	result = system(command);
-	if(result == -1){
-		perror(command);
-		exit(EXIT_FAILURE);
-	}
+	dosystem(command);
+
 	// Group the duplicates by one pathname
 	if (verbosity){
 		fputs("Setting logical group names on every line\n",
@@ -442,11 +428,7 @@ int main(int argc, char **argv)
 	}
 	sprintf(command, "sort %s > %s",
 						workfile8, workfile9);
-	result = system(command);
-	if(result == -1){
-		perror(command);
-		exit(EXIT_FAILURE);
-	}
+	dosystem(command);
 
 	// Format the results for the user
 	if (verbosity){
@@ -504,6 +486,24 @@ char *dostrdup(const char *s)
 	}
 	return cp;
 } // dostrdup()
+
+
+void dosystem(const char *cmd)
+{
+    const int status = system(cmd);
+
+    if (status == -1) {
+        fprintf(stderr, "system to execute: %s\n", cmd);
+        exit(EXIT_FAILURE);
+    }
+
+    if (!WIFEXITED(status) || WEXITSTATUS(status)) {
+        fprintf(stderr, "%s failed with non-zero exit\n", cmd);
+        exit(EXIT_FAILURE);
+    }
+
+    return;
+} // dosystem()
 
 void recursedir(char *headdir, FILE *fpo, char **vlist)
 {
