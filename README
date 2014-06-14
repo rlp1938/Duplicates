@@ -1,16 +1,24 @@
 Readme for program duplicates.
 
-The essence of the thing is that it takes the md5sum of all files in the
-directory input by the user, except those that have a unique file size,
-and then sorts the result by md5 hash, then inode number (ascii format),
-then path to the file. Files with differing hashes are not duplicates,
-nor are files with identical hashes and the same inode number. The
-latter are either hard linked or symlinked.
+The aim of the program is to report files which are duplicated, ie
+copied. To attain that aim the pathnames to all files under the user
+input dir or dirs are recorded along with the size in bytes and inode
+number. This file is then sorted on size, inode then pathname. That
+file is then processed so that, any file with a unique size is
+discarded. Then for any group of files having the same size and inode
+number, all but the last one is discarded. That group necessarily are
+all linked, hard linked or symlinked, it does not matter. At that poiint
+files of the same size but different inodes are checked to see if any
+byte differs within the first 128 Kbytes. Obviously if they diifer a
+files is discarded. If not then the pair of files are md5summed. If the
+hashes match then both files are recorded as being duplicates, otherwise
+the first file is discarded.
 
-Once the data lines that represent unique files are discarded the result
-is then sorted into groups to make analysis of the origin of the
-duplications easier to understand, ie the consquences of recursive
-directory copying.
+The result so far is in order of md5sum, inode, then path. This is of
+very little use to a human, so the groups of duplicates are grouped
+by the path name of the first item in the group. That is then output to
+stdout. If you redirect this to a file, such file may be used as input
+to 'processdups' for manual processing.
 
 I copied the md5.c, md5.h and other requirements from GNU coreutils-8.21
 The necessary files were available after ./configure && make on that

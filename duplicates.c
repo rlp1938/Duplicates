@@ -53,21 +53,30 @@ struct hashrecord {
 	char path[PATH_MAX];
 };
 
+struct sizerecord {
+	size_t filesize;
+	ino_t ino;
+	char path[PATH_MAX];
+	char ftyp;
+};
+
+
 static void help_print(int forced);
 static char *dostrdup(const char *s);
 static void  dosystem(const char *cmd);
 static void recursedir(char *headdir, FILE *fpo, char **vlist);
 static char *domd5sum(const char *pathname);
 static struct hashrecord parse_line(char *line);
-static void clipeol(char *line);
-static char *thepathname(char *line);
-static char *getcluster(char *path, int depth);
 static void firstrun(void);
 static char *getconfigpath(void);
 static char **mem2strlist(char *from, char *to);
 static void getprefix_from_user(char *sharefile);
-
-
+static struct sizerecord parse_size_line(char *line);
+static void screenfilelist(const char *filein, const char *fileout,
+			int verbosity);
+static int cmp(const char *path1, const char *path2, FILE *fpo);
+static void cluster_output(const char *pathin, const char *pathout);
+static void report(const char *path, int verbosity);
 
 static const char *helptext = "\n\tUsage: duplicates [option] dir_to_search\n"
   "\n\tOptions:\n"
@@ -85,55 +94,39 @@ static const char *helptext = "\n\tUsage: duplicates [option] dir_to_search\n"
 
 
 static char *eol; // string in case I ever want to do Microsoft
-static int clusterdepth;
 
 
 int main(int argc, char **argv)
 {
 	int opt, verbosity, delworks, vlindex;
 	struct fdata fdat;
-	char *from, *to;
 	char *workfile0;
 	char *workfile1;
 	char *workfile2;
 	char *workfile3;
 	char *workfile4;
-	char *workfile5;
-	char *workfile6;
-	char *workfile7;
-	char *workfile8;
-	char *workfile9;
-
 	char command[FILENAME_MAX];
-	FILE *fpo, *fpi, *fpofinal;
-	char *line1, *line2, *line3;
-	char buf1[PATH_MAX*2], buf2[PATH_MAX], clustername[PATH_MAX];
-	struct hashrecord hr1, hr2;
+	char buf[PATH_MAX];
+	FILE *fpo, *fpi;
 	char *topdir;
-	char *fgetsresult;
 	char *efl;	// path to excludes list
 	char **vlist;
 
 	// set default values
 	verbosity = 0;
 	filecount = 0;
-	fpofinal = stdout;
-	clusterdepth = 3;
 	delworks = 1;	// delete workfiles is the default
 	prefix = dostrdup("/usr/local/");
 
 	eol = "\n";	// string in case I ever want to do Microsoft
 
-	while((opt = getopt(argc, argv, ":hvdc:")) != -1) {
+	while((opt = getopt(argc, argv, ":hvd")) != -1) {
 		switch(opt){
 		case 'h':
 			help_print(0);
 		break;
 		case 'd':
 			delworks = 0;	// don't trash the workfiles at end
-		break;
-		case 'c':
-			clusterdepth = atoi(optarg);
 		break;
 		case 'v':
 			verbosity++;	// 4 levels of verbosity, 0-3. 0 no progress
@@ -169,16 +162,6 @@ int main(int argc, char **argv)
 	workfile3 = dostrdup(command);
 	sprintf(command, "/tmp/%sduplicates4", getenv("USER"));
 	workfile4 = dostrdup(command);
-	sprintf(command, "/tmp/%sduplicates5", getenv("USER"));
-	workfile5 = dostrdup(command);
-	sprintf(command, "/tmp/%sduplicates6", getenv("USER"));
-	workfile6 = dostrdup(command);
-	sprintf(command, "/tmp/%sduplicates7", getenv("USER"));
-	workfile7 = dostrdup(command);
-	sprintf(command, "/tmp/%sduplicates8", getenv("USER"));
-	workfile8 = dostrdup(command);
-	sprintf(command, "/tmp/%sduplicates9", getenv("USER"));
-	workfile9 = dostrdup(command);
 
 	// get my exclusions file
 	efl = getconfigpath();
@@ -192,7 +175,7 @@ int main(int argc, char **argv)
 
 	// open the output workfile
 	fpo = dofopen(workfile0, "w");
-	// Step 0 - list the files
+	// List the files
 	if (verbosity){
 		fputs("Generating list of files and symlinks\n",stderr);
 	}
@@ -229,7 +212,6 @@ int main(int argc, char **argv)
 		vlindex++;
 	}
 	free(vlist);
-
 	// Now sort them
 	if (verbosity){
 		fputs("Sorting list of files\n", stderr);
@@ -242,211 +224,46 @@ int main(int argc, char **argv)
 						workfile0, workfile1);
 	dosystem(command);
 
-	// look through the sorted workfile and discard those that have
-	// unique sizes
-	fdat = readfile(workfile1, 0, 1);
-	from = fdat.from;
-	to = fdat.to;
-	fpo = dofopen(workfile2, "w");
-	line1 = from;
-	// replace '\n' with '\0'
-	while(line1 < to) {
-		line1 = memchr(line1, '\n', PATH_MAX);
-		if (line1) *line1 = '\0';
-		line1++;	// at next line
+	if (verbosity){
+		fputs("Screening out non-duplicates and recording md5sum"
+		" as needed\n", stderr);
 	}
-	line1 = from;
-	while(line1 < to) {
-		unsigned long s1, s2;
-		s1 = strtoul(line1, NULL, 10);
-		line2 = line1 + strlen(line1) +1;
-		s2 = strtoul(line2, NULL, 10);
-		if (s1 == s2) {
-			fprintf(fpo, "%s\n%s\n", line1, line2);
-		}
-		line1 = line2;	// this will create duplicated records
-	} // while()
-	fclose(fpo);
-	free(from);
+
+	// screen what we have for unique file size
+	screenfilelist(workfile1, workfile2, verbosity);
+
 	// get rid of duplicated records.
 	sprintf(command, "sort -u %s > %s",
 						workfile2, workfile3);
 	dosystem(command);
 
-	// Traverse the list of files in workfile1 calculating MD5
-	if (verbosity){
-		fputs("Calculating md5sums\n", stderr);
-	}
-	fpi = dofopen(workfile3, "r");
-	fpo = dofopen(workfile4, "w");
-	while (fgets(buf1, PATH_MAX, fpi)){
-		char *p, *cp;
-		struct stat sb;
-		clipeol(buf1);
-		// find the path beginning
-		p = buf1;
-		while(isdigit(*p)) p++;
-		while(*p == ' ') p++;
-		cp = strstr(p, pathend);
-		*cp = '\0';	// end of the file path
-		cp += strlen(pathend) + 1;	// now looking at the file type, s|f
-		if (stat(p, &sb) == -1){
-			perror(p);	// just report it.
-		} else {
-			int report;
-			char *thesum = domd5sum(p);
-			fprintf(fpo, "%s %lu %c %s%s\n", thesum,
-				sb.st_ino, *cp, p, pathend);
-			// NB in the case of a symlink, sb.st_ino is the inode of
-			// the target, not the inode of the link itself.
-			filecount++;
-			switch(verbosity) {
-				case 0:	// do nothing
-				case 1:
-				report = 0;
-				break;
-				case 2:	// report every 100th
-				report = (filecount % 100 == 0) ? 1:0;
-				break;
-				case 3:	// report every tenth
-				report = (filecount % 10 == 0) ? 1:0;
-				break;
-				default:	// > 3 report every file
-				report = 1;
-				break;
-			}
-			if(report) {
-				fprintf(stderr, "Processing: %s\n", buf1);
-			}
-		}
-	}
-	fclose(fpi);
-	fclose(fpo);
-
-	// Sort the resultant file of sums + paths
-	if (verbosity){
-		fputs("Sorting on md5sum, inode, path\n", stderr);
-	}
-
+	/*
+	 * The data in workfile3 is sorted on the hash values so not well
+	 * suited for human processing. Next step is to group the clusters
+	 * of same hashes sorted by the path that exists on the first
+	 * record in each cluster.
+	*/
+	cluster_output(workfile3, workfile4);
+	// sort by cluster
 	sprintf(command, "sort %s > %s",
-						workfile4, workfile5);
+						workfile3, workfile4);
 	dosystem(command);
 
-	// Process the sorted work file
-	if (verbosity){
-		fputs("Discarding pathnames of unique files\n", stderr);
-	}
-	fdat = readfile(workfile5, 0, 1);
-	from = fdat.from;
-	to = fdat.to;
-	fpo = dofopen(workfile6, "w");
-	// turn the mess into a list of C strings
-	line1 = from;
-	while (line1 < to) {
-		line1 = memchr(line1, '\n', PATH_MAX);
-		if (line1) *line1 = '\0';
-		line1 += strlen(line1) + 1;
-	}
-	// output the duplicated lines
-	line1 = from;
-	hr1 = parse_line(line1);
-	while (line1 < to){
-		line2 = line1 + strlen(line1) + 1;	// looking at next line
-		if (!( line2 < to )) break;
-		hr2 = parse_line(line2);
-		if ( strncmp(hr1.thesum, hr2.thesum, 32) == 0 &&
-				hr1.ino != hr2.ino ) {	// this is a duplicated copy
-			fprintf(fpo, "%s %lu %c %s%s\n", hr1.thesum, hr1.ino,
-							hr1.ftyp, hr1.path, pathend);
-			fprintf(fpo, "%s %lu %c %s%s\n", hr2.thesum, hr2.ino,
-							hr2.ftyp, hr2.path, pathend);
-		}
-		line1 = line2;	// a treble will cause 4 output lines etc.
-		hr1 = hr2;
-	}
-	fclose(fpo);
+	// send results to stdout
+	fpi = dofopen(workfile4, "r");
+	// <md5sum> <inode> <path><pathend> <f|s>
+	while(fgets(buf, PATH_MAX, fpi)) {
+		char *line;
+		struct hashrecord hr;
+		line = strchr(buf, '\n');
+		if (line) *line = '\0';
+		line = buf;
+		hr = parse_line(line);
+		fprintf(stdout, "%s %lu %s%s %c\n", hr.thesum, hr.ino, hr.path,
+					pathend, hr.ftyp);
 
-	// Step 4, use sort to get rid of duplicated lines
-	if (verbosity){
-		fputs("Discarding duplicated pathnames\n", stderr);
-	}
-	sprintf(command, "sort -u %s > %s",
-						workfile6, workfile7);
-	dosystem(command);
-
-	// Group the duplicates by one pathname
-	if (verbosity){
-		fputs("Setting logical group names on every line\n",
-				stderr);
-	}
-	fpi = dofopen(workfile7, "r");
-	fpo = dofopen(workfile8, "w");
-	line1 = buf1;
-	line2 = buf2;
-	fgetsresult = fgets(line1, PATH_MAX, fpi);
-	if(!fgetsresult && ferror(fpi)) {
-		perror("fgets()");
-	}
-	clipeol(line1);
-	eol = strstr(line1, pathend);
-	if (eol) *eol = '\0';
-	line3 = dostrdup(thepathname(line1));
-	strcpy(clustername, getcluster(line3, clusterdepth));
-
-	while ((fgets(line2, PATH_MAX, fpi))) {
-		char *cp;
-		// I know that these are duplicated file names.
-		clipeol(line2);
-		eol = strstr(line2, pathend);
-		if (eol) *eol = '\0';
-		eol = strstr(line1, pathend);
-		if (eol) *eol = '\0';
-		fprintf(fpo, "%s %s%s\n", clustername, line1, pathend);
-		while (strncmp(line1, line2, 32) == 0) {
-			eol = strstr(line2, pathend);
-			if(eol) *eol = '\0';
-			fprintf(fpo, "%s %s%s\n", clustername, line2, pathend);
-			cp = fgets(line2, PATH_MAX, fpi);
-			if(!(cp)) break;
-			clipeol(line2);
-		}
-
-		// line2 does not match on hash so it becomes line1
-		line1 = line2;
-		free(line3);
-		line3 = dostrdup(thepathname(line1));
-		strcpy(clustername, getcluster(line3, clusterdepth));
-	} // while()
-        free(line3);
-
-	fclose(fpo);
-	fclose(fpi);
-	// Sort the mess by groupname
-	if (verbosity){
-		fputs("Sort on logical group names.\n",
-				stderr);
-	}
-	sprintf(command, "sort %s > %s",
-						workfile8, workfile9);
-	dosystem(command);
-
-	// Format the results for the user
-	if (verbosity){
-		fputs("Send the results to stdout.\n",
-				stderr);
-	}
-	fpi = dofopen(workfile9, "r");
-	// fpofinal has been dealt with at options processing time.
-	while((fgets(buf1, 2 * PATH_MAX, fpi))) {
-		line1 = strstr(buf1, pathend);	// sentinel
-		line1 += strlen(pathend);
-		while(*line1 == ' ') line1++;	// now looking at md5sum
-		hr1 = parse_line(line1);
-		fprintf(fpofinal, "%s%s %s %lu %c\n",
-					hr1.path, pathend, hr1.thesum, hr1.ino, hr1.ftyp);
 	} // while()
 
-	sync();
 	if (delworks){
 		if (verbosity){
 			fputs("Deleting workfiles.\n",
@@ -457,13 +274,8 @@ int main(int argc, char **argv)
 		unlink(workfile2);
 		unlink(workfile3);
 		unlink(workfile4);
-		unlink(workfile5);
-		unlink(workfile6);
-		unlink(workfile7);
-		unlink(workfile8);
-		unlink(workfile9);
-
 	}
+
 
 	return 0;
 } // main()
@@ -542,6 +354,7 @@ void recursedir(char *headdir, FILE *fpo, char **vlist)
 				break;
 			}
 			if (sb.st_size == 0) break;	// no interest in 0 length files
+			if (!(S_ISREG(sb.st_mode))) break; // only regular files.
 			ftyp = "s";
 			goto REG_LNK_common;
 			case DT_REG:
@@ -566,8 +379,8 @@ REG_LNK_common:
 				index++;
 			}
 			if(want){
-				fprintf(fpo, "%lu %s%s %s\n", sb.st_size, newpath,
-						pathend, ftyp );
+				fprintf(fpo, "%lu %lu %s%s %s\n", sb.st_size, sb.st_ino,
+				newpath, pathend, ftyp );
 			}
 			break;
 			case DT_DIR:
@@ -631,76 +444,30 @@ char *domd5sum(const char *pathname)
 struct hashrecord parse_line(char *line)
 {
 	/* parse the data contained in line into the struct */
-	char *cp;
+	// <md5sum> <inode number> <path><pathend> <f|t>
+	char *cp, *eop;
 	struct hashrecord hr;
+	char buf[PATH_MAX];
 	/* struct hashrecord {
 	char thesum[33];
 	ino_t ino;
 	char ftyp;
 	char path[PATH_MAX];
 	}; */
-	strncpy(hr.thesum, line, 32);
+
+	strcpy(buf, line);
+	hr.ftyp = buf[strlen(buf) - 1];
+	strncpy(hr.thesum, buf, 32);
 	hr.thesum[32] = '\0';
-	cp = line + 34;	// first char of inode (as string).
-	hr.ino = (unsigned long) atol(cp);
-	while (*cp != 'f' && *cp != 's') cp++;	// point to file type
-	hr.ftyp = *cp;
-	cp++;	cp++;	// now looking at the path
+	cp = buf + 34;	// first char of inode (as string).
+	hr.ino = strtoul(cp, NULL, 10);
+	while (isdigit(*cp)) cp++;	// get past inode
+	cp++;	// at path
+	eop = strstr(buf, pathend);
+	if (eop) *eop = '\0';
 	strcpy(hr.path, cp);
-	cp = strstr(hr.path, pathend);
-	if (cp) *cp = '\0';
 	return hr;
 } // parse_line()
-
-void clipeol(char *line)
-{
-	char *cp;
-	cp = strchr(line, '\n');
-	if(cp) {
-		*cp = '\0';
-	}
-} // clipeol()
-
-char *thepathname(char *line)
-{
-	// <md5sum> <inode> <ftyp> <pathname><pathend>
-	char *cp, *eop;
-	cp = line + 32;
-	while (*cp == ' ') cp++;	// hash
-	while (isdigit(*cp)) cp++;	// inode
-	while (*cp == ' ') cp++;	// ftyp
-	cp++;	// space after ftyp
-	while (*cp == ' ') cp++;	// path
-	eop = strstr(cp, pathend);
-	if (eop) *eop = '\0';
-	return cp;
-} // thepathname()
-
-char *getcluster(char *path, int depth)
-{
-	static char buf[PATH_MAX];
-	char *cp;
-	int target;
-	int count = 0;
-	target = depth;
-	strcpy(buf, path);
-	cp = buf;
-	// start our search for '/' after any leading junk that has one
-	if (strncmp(cp, "../", 3) == 0) {
-		cp += 3;
-	} else if (strncmp(cp, "./", 2) == 0) {
-		cp += 2;
-	} else if (*cp == '/') {
-		cp++;
-	}
-	while ((cp = strchr(cp, '/')) && (count < target)) {
-		count++;
-		cp++;
-	}
-	if (cp) *cp = '\0';
-	strcat(buf, pathend);
-	return buf;
-} // getcluster()
 
 void firstrun(void)
 {
@@ -874,3 +641,206 @@ void getprefix_from_user(char *sharefile)
 	}
 	strcpy(sharefile, ans);
 } // getprefix_from_user()
+
+static struct sizerecord parse_size_line(char *line)
+{
+	/*
+	 * <file size> <inode number> <path to file><pathend> <s|f>
+	*/
+	struct sizerecord sr;
+	char *cp, *eop;
+	char buf[PATH_MAX];
+
+	strcpy(buf, line);	// needed, it gets clobbered
+	sr.ftyp = buf[strlen(buf) -1 ];
+	cp = buf;
+	sr.filesize = strtoul(cp, NULL, 10);
+	while(isdigit(*cp)) cp++;
+	cp++;	// now looking at inode
+	sr.ino = strtoul(cp, NULL, 10);
+	while (isdigit(*cp)) cp++;
+	cp++;	// looking at path
+	eop = strstr(cp, pathend);
+	*eop = '\0';
+	memset(sr.path, 0, PATH_MAX); // in case I need to use gdb
+	strcpy(sr.path, cp);
+	return sr;
+} // parse_size_line()
+
+static void screenfilelist(const char *filein, const char *fileout,
+			int verbosity)
+{
+	/*
+	 * look through the sorted workfile and discard those that have
+	 * unique sizes, also all but the last of those that have the same
+	 * size and inode number. Of those that have the same size and
+	 * different inode numbers, compare the lesser of file size or
+	 * 128 kbytes and if the files differ, discard the first presented
+	 * record. For what remains calculate md5sums and if the hashes
+	 * match record them.
+	*/
+	FILE *fpo, *fplog;
+	char *line1, *line2;
+	struct sizerecord sr1, sr2;
+	struct fdata fdat;
+
+	fplog = dofopen("comparison_errors", "w");
+
+	fdat = readfile(filein, 0, 1);
+	fpo = dofopen(fileout, "w");
+	line1 = fdat.from;
+	// replace '\n' with '\0'
+	while(line1 < fdat.to) {
+		line1 = memchr(line1, '\n', PATH_MAX);
+		if (line1) *line1 = '\0';
+		line1++;	// at next line
+	}
+	line1 = fdat.from;
+	sr1 = parse_size_line(line1);
+	report(sr1.path, verbosity);
+	line2 = line1 + strlen(line1) +1;
+	while(line2 < fdat.to){
+		sr2 = parse_size_line(line2);
+		report(sr2.path, verbosity);
+			if (sr1.filesize != sr2.filesize) {
+				// forget line1 it has a unique size.
+				goto re_init;
+			}
+			if (sr1.ino == sr2.ino) {
+				// these two files are linked so forget line1
+				goto re_init;
+			}
+			// here two files of same size and differing inode
+			// see if the content differs.
+			if (cmp(sr1.path, sr2.path, fplog) != 0) {
+				/* cmp() is definitive in the negative but not in
+				 * the positive if the filesize exceeds 128 k because it
+				 * only tests the smaller of filesize or 128 kbyte. If
+				 * it looks as if it may be a match then I'll hash sum
+				 * them. When there is a cluster of matches we will get
+				 * duplicated output records, sort -u required.
+				 * */
+				 goto re_init;	// content does not match, skip line1
+			} else {
+				char hash1[33], hash2[33];
+				strcpy(hash1, domd5sum(sr1.path));
+				strcpy(hash2, domd5sum(sr2.path));
+				if (strncmp(hash1, hash2, 32) == 0) {
+					fprintf(fpo, "%s %lu %s%s %c\n", hash1, sr1.ino,
+							sr1.path, pathend, sr1.ftyp);
+					fprintf(fpo, "%s %lu %s%s %c\n", hash2, sr2.ino,
+							sr2.path, pathend, sr2.ftyp);
+				}
+			}
+re_init:
+		sr1 = sr2;
+		line1 = line2;	// handy if I'm in gdb
+		line2 += strlen(line2) +1;
+	} // while(line2...)
+	fclose(fpo);
+	fclose(fplog);
+} // screenfilelist()
+
+int cmp(const char *path1, const char *path2, FILE *fplog)
+{
+	/* compares byte by byte of path1 and path2 to the smaller of
+	 * filesize or 1 megabyte. Returns 0 if all bytes match or
+	 * something else, otherwise.
+	 * */
+	const int chunk= 131072;	// 128k
+	FILE *fp1, *fp2;
+	char buf1[chunk], buf2[chunk];
+	off_t b1, b2;
+	// Not fatal on "No such file... error"
+	fp1 = fopen(path1, "r");
+	if (!(fp1)) {
+		fputs("cmp(1)\n", stderr);
+		perror(path1);
+		return 1;
+	}
+	fp2 = fopen(path2, "r");
+	if (!(fp2)) {
+		fputs("cmp(2)\n", stderr);
+		perror(path2);
+		fclose(fp1);
+		return 1;
+	}
+
+	b1 = fread(buf1, 1, chunk, fp1);
+	b2 = fread(buf2, 1, chunk, fp2);
+	fclose(fp1);
+	fclose(fp2);
+	if (b1 != b2) {	// record the errors in a log file. not fatal
+		fprintf(fplog, "File length mismatch: %s %lu , %s %lu\n",
+				path1, b1, path2, b2);
+		return 1;
+	}
+
+	return(strncmp(buf1, buf2, b1));// 0 on match, or something else.
+} // cmp()
+
+static void cluster_output(const char *pathin, const char *pathout)
+{
+	char clustername[PATH_MAX];
+	struct fdata fdat;
+	char *line1, *line2;
+	struct hashrecord hr1, hr2;
+	FILE *fpo;
+	fpo = dofopen(pathout, "w");
+	fdat = readfile(pathin, 0, 1);
+	line1 = fdat.from;
+	// make C strings
+	while(line1 < fdat.to) {
+		if(*line1 == '\n') *line1 = '\0';
+		line1++;
+	}
+
+	line1 = fdat.from;
+	hr1 = parse_line(line1);
+	strcpy(clustername, hr1.path);
+	line2 = line1 + strlen(line1) +1;
+	hr2 = parse_line(line2);
+	while(line1 < fdat.to) {
+		fprintf(fpo, "%s%s %s %lu %s%s %c\n", clustername, pathend,
+			hr1.thesum, hr1.ino, hr1.path, pathend, hr1.ftyp );
+		while (strcmp(hr2.thesum, hr1.thesum) == 0) {
+			fprintf(fpo, "%s%s %s %lu %s%s %c\n",
+			clustername, pathend, hr2.thesum, hr2.ino, hr2.path,
+			pathend, hr2.ftyp);
+			line2 += strlen(line2) +1;
+			hr2 = parse_line(line2);
+		} // while(strcn=mp())
+		line1 = line2;
+		line2 += strlen(line1) + 1;
+		if (line2 < fdat.to){
+			hr1 = parse_line(line1);
+			hr2 = parse_line(line2);
+		}
+	} // while(line1...)
+	fclose(fpo);
+} // cluster_output()
+
+static void report(const char *path, int verbosity)
+{
+	/* list a certain number of files that have been considered,
+	 * not the files written out with hashes associated.*/
+	 filecount++;
+	 switch(verbosity){
+		 case 0:
+		 case 1:
+		 break;
+		 case 2:
+		 if (filecount % 100 == 0) {
+			 fprintf(stderr, "%s\n", path);
+		 }
+		 break;
+		 case 3:
+		 if (filecount % 10 == 0) {
+			 fprintf(stderr, "%s\n", path);
+		 }
+		 break;
+		 default:	// 4 and greater report all.
+		 fprintf(stderr, "%s\n", path);
+		 break;
+	 }
+} // report()
