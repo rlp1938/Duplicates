@@ -67,6 +67,21 @@ of selecting any level of verbosity.
 .br
 NB zero length files are never taken into account in this program.
 .br
+.SH FILES
+There is a configuration file \fI$HOME/.congfig/duplicates/excludes\fR
+.br
+in which is recorded some strings to identify paths which are not
+.br
+needed to test for duplication.  Some of these are there because the
+.br
+files are volatile and change size during the course of the run.
+.br
+Any files that do change size during the run will be recorded in
+.br
+.IR ./comparison_errors " for perusal and possible editing of the"
+.br
+configuration file. The errors file is automatically unlinked if empty.
+.br
 .SH VERSION
 This documentation describes \fBduplicates\fR version 1.0.3
 .SH "SEE ALSO"

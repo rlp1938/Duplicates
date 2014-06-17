@@ -106,11 +106,12 @@ int main(int argc, char **argv)
 	char *workfile3;
 	char *workfile4;
 	char command[FILENAME_MAX];
-	char buf[PATH_MAX];
-	FILE *fpo, *fpi;
+	FILE *fpo;
 	char *topdir;
 	char *efl;	// path to excludes list
 	char **vlist;
+	size_t written;
+	struct stat sb;
 
 	// set default values
 	verbosity = 0;
@@ -250,19 +251,22 @@ int main(int argc, char **argv)
 	dosystem(command);
 
 	// send results to stdout
-	fpi = dofopen(workfile4, "r");
-	// <md5sum> <inode> <path><pathend> <f|s>
-	while(fgets(buf, PATH_MAX, fpi)) {
-		char *line;
-		struct hashrecord hr;
-		line = strchr(buf, '\n');
-		if (line) *line = '\0';
-		line = buf;
-		hr = parse_line(line);
-		fprintf(stdout, "%s %lu %s%s %c\n", hr.thesum, hr.ino, hr.path,
-					pathend, hr.ftyp);
+	fdat = readfile(workfile4, 0, 1);
+	written = fwrite(fdat.from, 1, fdat.to - fdat.from, stdout);
+	if (written != (unsigned)(fdat.to - fdat.from)) {
+		perror("stdout");
+	}
 
-	} // while()
+	if (stat("comparison_errors", &sb) == -1) {
+		perror("comparison_errors");
+	} else if (sb.st_size != 0) {
+		fputs("One or more volatile files changed size during the run\n"
+		"You might want to view ./comparison_errors and edit\n "
+		" $HOME/.config/duplicates/excludes, to avoid this problem.\n"
+		, stderr);
+	} else {
+		unlink("comparison_errors");
+	}
 
 	if (delworks){
 		if (verbosity){
@@ -379,7 +383,7 @@ REG_LNK_common:
 				index++;
 			}
 			if(want){
-				fprintf(fpo, "%lu %lu %s%s %s\n", sb.st_size, sb.st_ino,
+				fprintf(fpo, "%.20lu %.20lu %s%s %s\n", sb.st_size, sb.st_ino,
 				newpath, pathend, ftyp );
 			}
 			break;
@@ -459,7 +463,7 @@ struct hashrecord parse_line(char *line)
 	hr.ftyp = buf[strlen(buf) - 1];
 	strncpy(hr.thesum, buf, 32);
 	hr.thesum[32] = '\0';
-	cp = buf + 34;	// first char of inode (as string).
+	cp = buf + 33;	// first char of inode (as string).
 	hr.ino = strtoul(cp, NULL, 10);
 	while (isdigit(*cp)) cp++;	// get past inode
 	cp++;	// at path
@@ -726,9 +730,9 @@ static void screenfilelist(const char *filein, const char *fileout,
 				strcpy(hash1, domd5sum(sr1.path));
 				strcpy(hash2, domd5sum(sr2.path));
 				if (strncmp(hash1, hash2, 32) == 0) {
-					fprintf(fpo, "%s %lu %s%s %c\n", hash1, sr1.ino,
+					fprintf(fpo, "%s %.20lu %s%s %c\n", hash1, sr1.ino,
 							sr1.path, pathend, sr1.ftyp);
-					fprintf(fpo, "%s %lu %s%s %c\n", hash2, sr2.ino,
+					fprintf(fpo, "%s %.20lu %s%s %c\n", hash2, sr2.ino,
 							sr2.path, pathend, sr2.ftyp);
 				}
 			}
@@ -771,7 +775,7 @@ int cmp(const char *path1, const char *path2, FILE *fplog)
 	fclose(fp1);
 	fclose(fp2);
 	if (b1 != b2) {	// record the errors in a log file. not fatal
-		fprintf(fplog, "File length mismatch: %s %lu , %s %lu\n",
+		fprintf(fplog, "File length mismatch: %s %.20lu , %s %.20lu\n",
 				path1, b1, path2, b2);
 		return 1;
 	}
@@ -801,10 +805,10 @@ static void cluster_output(const char *pathin, const char *pathout)
 	line2 = line1 + strlen(line1) +1;
 	hr2 = parse_line(line2);
 	while(line1 < fdat.to) {
-		fprintf(fpo, "%s%s %s %lu %s%s %c\n", clustername, pathend,
+		fprintf(fpo, "%s%s %s %.20lu %s%s %c\n", clustername, pathend,
 			hr1.thesum, hr1.ino, hr1.path, pathend, hr1.ftyp );
 		while (strcmp(hr2.thesum, hr1.thesum) == 0) {
-			fprintf(fpo, "%s%s %s %lu %s%s %c\n",
+			fprintf(fpo, "%s%s %s %.20lu %s%s %c\n",
 			clustername, pathend, hr2.thesum, hr2.ino, hr2.path,
 			pathend, hr2.ftyp);
 			line2 += strlen(line2) +1;
