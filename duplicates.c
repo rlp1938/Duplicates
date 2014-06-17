@@ -112,11 +112,12 @@ int main(int argc, char **argv)
 	char **vlist;
 	size_t written;
 	struct stat sb;
-
+	dev_t thedev;
 	// set default values
 	verbosity = 0;
 	filecount = 0;
 	delworks = 1;	// delete workfiles is the default
+	thedev = 0;
 	prefix = dostrdup("/usr/local/");
 
 	eol = "\n";	// string in case I ever want to do Microsoft
@@ -194,6 +195,16 @@ int main(int argc, char **argv)
 		if (!(S_ISDIR(sb.st_mode))) {
 			fprintf(stderr, "Not a directory: %s\n", argv[optind]);
 			help_print(EXIT_FAILURE);
+		}
+
+		if (thedev == 0) {
+			thedev = sb.st_dev;
+		} else {
+			if (sb.st_dev != thedev) {
+				fprintf(stderr, "You may not enter dirs on "
+						"different file systems.\n");
+				exit(EXIT_FAILURE);
+			}
 		}
 		topdir = argv[optind];
 		{
