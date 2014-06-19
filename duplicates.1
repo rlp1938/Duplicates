@@ -1,16 +1,17 @@
-.TH DUPLICATES 1 "v\ 1.0.2" "2014-05-15" "GNU"
+.TH DUPLICATES 1 "v\ 1.0.4" "2014-05-15" "GNU"
 .SH NAME
 .B duplicates
-\- Generate a list of duplicated files in user input dir.
+\- Generate a list of duplicated files in user input dir(s).
 .SH SYNOPSIS
-duplicates \fIdir [dir ...]\fR > \fIdups.lst\fR
+.B duplicates \fIdir [dir ...]\fR > \fIdups.lst\fR
 .br
-duplicates \fIdir [dir ...]\fR > \fIdups.lst\fR 2> \fIbroken_links\fR
+.B duplicates \fIdir [dir ...]\fR > \fIdups.lst\fR 2> \fIbroken_links\fR
 .br
-.BR NB " when using multiple dirs you may not use dirs on different"
+.BR NB " When using multiple dirs it is possible to select dirs on "
 .br
-devices. To attempt it is a fatal error.
+differing devices. Subsequent processing by \fBprocessdups\fR will
 .br
+convert link requests from the user as hardlinks or symlinks as needed.
 .SH OPTIONS
 .TP
 \-h, prints a brief help message.
@@ -35,23 +36,30 @@ You probably do not want to use this option when you are redirecting
 .br
 \fIstderr\fR to a file. Eg 2> \fIerrors_file\fR
 .SH DESCRIPTION
-When run to conclusion a total of 5 workfiles will be created in /tmp.
+When run to conclusion a total of 6 workfiles will be created in /tmp.
 .br
-The filenames are of the form \fI$USERduplicates0\fR .. \fI$USERduplicates4\fR
+The filenames are of the form \fI$USERduplicates0\fR ..
+\fI$USERduplicates5\fR
 .br
-The program works by sorting on size bytes, inode number, then path to
+The program works by sorting on size bytes, inode number, device
 .br
-file. Files of unique size are discarded, then for files of identical
+number, then path to file. Files of unique size are discarded, then
 .br
-size and inode number, being mutually linked, all but the last record
+for files of identical size and inode number, being mutually linked,
 .br
-is discarded. Files of like size and different inodes are compared byte
+all but the last record is discarded. Files of like size and different
 .br
-by over the lesser of filesize or 12k kb, Only if such files are the
+inodes are compared byte by byte over the lesser of filesize or 12k kb.
 .br
-same an md5sum hash is calculated. If the hashes match then these files
+Only if such files are the same an md5sum hash is calculated.
 .br
-are output as duplicates.
+If the hashes match then these files are output as duplicates.
+.br
+.BR NB " When processing files across different devices a simpler and"
+.br
+more time consuming algorithm is used, only files of unique size are
+.br
+considered and md5sum for all others are generated.
 .br
 After sorting on md5sum, inode, and path, the first path in any cluster
 .br
@@ -87,7 +95,7 @@ Any files that do change size during the run will be recorded in
 configuration file. The errors file is automatically unlinked if empty.
 .br
 .SH VERSION
-This documentation describes \fBduplicates\fR version 1.0.3
+This documentation describes \fBduplicates\fR version 1.0.4
 .SH "SEE ALSO"
 bigfiles(1), brokensym(1), oldfiles(1), processdups(1), zapfiles(1),
 cleanuputils(7)
