@@ -1,4 +1,3 @@
-
 /*      duplicates.c
  *
  *	Copyright 2011 Bob Parker <rlp1938@gmail.com>
@@ -318,7 +317,6 @@ char *dostrdup(const char *s)
 	}
 	return cp;
 } // dostrdup()
-
 
 void dosystem(const char *cmd)
 {
