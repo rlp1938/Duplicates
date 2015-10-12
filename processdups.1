@@ -1,0 +1,45 @@
+.TH PROCESSDUPS 1 "v\ 1.0.1" "Tue, May 13, 2014" "GNU"
+.SH NAME
+.B processdups
+\- reads a list of duplicated files and asks what to do.
+.br
+The list of duplicated files is required to be in the format produced
+.br
+by
+.B duplicates.
+.SH SYNOPSIS
+processdups duplicates.lst
+.br
+.SH OPTIONS
+-h, outputs a brief help message.
+.br
+-l, After deletion, hard link the deleted file back to the preserved
+.br
+path. NB this option does nothing when the user elects to delete the
+.br
+entire group.
+.SH DESCRIPTION
+The program reads through a list of duplicated files and presents the
+.br
+duplicated pairs or more, and asks the user what action to take.
+.br
+Actions possible are delete all but a selected item, delete none, or
+.br
+delete all items.
+.br
+The user can exit at any time and in that case the duplicates list is
+.br
+rewritten with only the items not dealt with yet.
+.SH VERSION
+This documentation describes
+.B processdups
+version 1.0.1
+.SH "SEE ALSO"
+duplicates(1), bigfiles(1), brokensym(1)
+.br
+.I
+.SH AUTHOR
+Bob Parker <rlp1938@gmail.com>
+
+
+

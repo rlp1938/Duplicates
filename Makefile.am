@@ -2,14 +2,17 @@
 
 AM_CFLAGS=-Wall -Wextra
 
-bin_PROGRAMS=duplicates
+bin_PROGRAMS=duplicates processdups
 duplicates_SOURCES=duplicates.c md5.c fileops.c fileops.h  md5.h \
  unlocked-io.h firstrun.h firstrun.c
-man_MANS=duplicates.1
+
+processdups_SOURCES=processdups.c
+
+man_MANS=duplicates.1 processdups.1
 # next lines added by hand edit
 # send excludes.conf to $(prefix)/share/
 dupdir=$(datadir)/duplicates
 dup_DATA=excludes.conf
 # ensure that excludes.conf and duplicates.1 get put in the tarball.
 # also stops make distcheck bringing an error.
-EXTRA_DIST=excludes.conf duplicates.1
+EXTRA_DIST=excludes.conf duplicates.1 processdups.1
