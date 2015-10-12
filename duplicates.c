@@ -30,7 +30,9 @@
 #include <limits.h>
 
 #include "md5.h"
-#include "fileutil.h"
+#include "fileops.h"
+//#include "fileutil.h"
+#include "firstrun.h"
 
 static int filecount;
 
@@ -59,14 +61,11 @@ struct sizerecord {
 
 static void help_print(int forced);
 static char *dostrdup(const char *s);
-static void  dosystem(const char *cmd);
 static void recursedir(char *headdir, FILE *fpo, char **vlist);
 static char *domd5sum(const char *pathname);
 static struct hashrecord parse_line(char *line);
-static void firstrun(void);
 static char *getconfigpath(void);
 static char **mem2strlist(char *from, char *to);
-static void getprefix_from_user(char *sharefile);
 static struct sizerecord parse_size_line(char *line);
 static void screenfilelist(const char *filein, const char *fileout,
 			int verbosity);
@@ -115,7 +114,7 @@ int main(int argc, char **argv)
 	// set default values
 	verbosity = 0;
 	filecount = 0;
-	delworks = 1;	// delete workfiles is the default
+	delworks = 1;	// delete workfiles is the default.
 	crossdev = thedev = 0;	// working across different devices maybe
 	prefix = dostrdup("/usr/local/");
 
@@ -166,13 +165,20 @@ int main(int argc, char **argv)
 	sprintf(command, "/tmp/%sduplicates5", getenv("USER"));
 	workfile5 = dostrdup(command);
 
+	// first run ?
+	if (checkfirstrun("duplicates")) {
+		firstrun("duplicates", "excludes.conf");
+		fprintf(stdout, "Configuration file installed: %s"
+		"\nat $HOME/.config/duplicates/\n",
+					"excludes.conf");
+		fputs("Edit this file to match your requirements.\n", stdout);
+		exit(EXIT_SUCCESS);
+	}
+
 	// get my exclusions file
 	efl = getconfigpath();
-	fdat = readfile(efl, 1, 0);
-	if (!(fdat.from)) {
-		firstrun();
-		fdat = readfile(efl, 1, 1); // fatal if I dont have it now
-	}
+	fdat = readfile(efl, 1, 1);
+
 	// turn the exclusions file into an array of strings
 	vlist = mem2strlist(fdat.from, fdat.to);
 
@@ -317,23 +323,6 @@ char *dostrdup(const char *s)
 	}
 	return cp;
 } // dostrdup()
-
-void dosystem(const char *cmd)
-{
-    const int status = system(cmd);
-
-    if (status == -1) {
-        fprintf(stderr, "system to execute: %s\n", cmd);
-        exit(EXIT_FAILURE);
-    }
-
-    if (!WIFEXITED(status) || WEXITSTATUS(status)) {
-        fprintf(stderr, "%s failed with non-zero exit\n", cmd);
-        exit(EXIT_FAILURE);
-    }
-
-    return;
-} // dosystem()
 
 void recursedir(char *headdir, FILE *fpo, char **vlist)
 {
@@ -491,57 +480,6 @@ struct hashrecord parse_line(char *line)
 	return hr;
 } // parse_line()
 
-void firstrun(void)
-{
-	char line[PATH_MAX], userhome[PATH_MAX];
-	struct stat sb;
-	FILE *fpi, *fpo;
-	char *cfg;
-
-	cfg = getconfigpath();
-	strcpy(userhome, cfg);
-	if(stat(userhome, &sb) == -1) {
-		char *cp;
-		char sharefile[PATH_MAX];
-		// char *sharefile = "/usr/local/share/duplicates/excludes.conf";
-		cp = strstr(userhome, "excludes.conf");
-		*cp = '\0';
-		if(stat(userhome, &sb) == -1) { // no dir
-			if (mkdir(userhome, 0755) == -1) {
-				perror(userhome);
-				exit(EXIT_FAILURE);
-			}
-		}
-		strcpy(sharefile, prefix);
-		if (sharefile[strlen(sharefile)-1] != '/') {
-			strcat(sharefile, "/");
-		}
-		strcat(sharefile, "duplicates/excludes.conf");
-		// check that it exists in /usr/local/share/
-		if (stat(sharefile, &sb) == -1) {
-			strcpy(sharefile, "/usr/share/");
-			strcat(sharefile, "duplicates/excludes.conf");
-			if (stat(sharefile, &sb)== -1) {
-				getprefix_from_user(sharefile);
-			}
-		}
-		fpi = dofopen(sharefile, "r");
-		strcat(userhome, "excludes.conf");
-		fpo = dofopen(userhome, "w");
-		while (fgets(line, PATH_MAX, fpi)){
-			fputs(line, fpo);
-		}
-		fclose(fpi); fclose(fpo);
-	}
-	fputs(userhome, stderr);
-	fputs(" has been created\n"
-	"You can edit this file to control what pathnames to exclude\n"
-	"from processing by duplicates.\n"
-	"Excluded pathnames are any that contain the text in any line\n"
-	"of the file, except what is commented by '#'.\n"
-	,stderr);
-} // firstrun()
-
 char *getconfigpath(void)
 {
 	static char userhome[PATH_MAX];
@@ -626,43 +564,6 @@ char **mem2strlist(char *from, char *to)
 	}
 	return vlist;
 } // mem2strlist()
-
-void getprefix_from_user(char *sharefile)
-{
-	char ans[FILENAME_MAX];
-	struct stat sb;
-	char *cp;
-
-	fputs("I cannot find a configuration file 'duplicates/excludes'\n"
-	"in either '/usr/share/' or '/usr/local/share/' !\n"
-	"It seems that you have installed to a non-standard path by using\n"
-	"./configure --prefix=somedir\n"
-	,stdout);
-	fputs("Please enter the name you used to configure: ", stderr);
-	cp = fgets(ans, FILENAME_MAX, stdin);
-	if(!(cp)){	// only to stop gcc bitching
-		perror("fgets");
-	}
-	// wipe out trailing '\n'
-	cp = ans;
-	while (*cp != '\n') cp++;
-	*cp = '\0';
-	if (ans[strlen(ans)-1] != '/') strcat(ans, "/");
-	strcat(ans, "share/duplicates/excludes.conf");
-	while (stat(ans, &sb) == -1) {
-		fprintf(stderr, "No such file: %s\nPlease try again: ", ans);
-		cp = fgets(ans, FILENAME_MAX, stdin);
-		if(!(cp)){	// only to stop gcc bitching
-			perror("fgets");
-		}
-		cp = ans;
-		while(*cp != '\n') cp++;
-		*cp = '\0';
-		if (ans[strlen(ans)-1] != '/') strcat(ans, "/");
-		strcat(ans, "share/duplicates/excludes.conf");
-	}
-	strcpy(sharefile, ans);
-} // getprefix_from_user()
 
 static struct sizerecord parse_size_line(char *line)
 {

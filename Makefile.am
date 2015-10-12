@@ -3,8 +3,8 @@
 AM_CFLAGS=-Wall -Wextra
 
 bin_PROGRAMS=duplicates
-duplicates_SOURCES=duplicates.c md5.c fileutil.c fileutil.h  md5.h \
- unlocked-io.h
+duplicates_SOURCES=duplicates.c md5.c fileops.c fileops.h  md5.h \
+ unlocked-io.h firstrun.h firstrun.c
 man_MANS=duplicates.1
 # next lines added by hand edit
 # send excludes.conf to $(prefix)/share/

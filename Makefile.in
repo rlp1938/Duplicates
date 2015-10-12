@@ -100,7 +100,7 @@ am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(man1dir)" \
 	"$(DESTDIR)$(dupdir)"
 PROGRAMS = $(bin_PROGRAMS)
 am_duplicates_OBJECTS = duplicates.$(OBJEXT) md5.$(OBJEXT) \
-	fileutil.$(OBJEXT)
+	fileops.$(OBJEXT) firstrun.$(OBJEXT)
 duplicates_OBJECTS = $(am_duplicates_OBJECTS)
 duplicates_LDADD = $(LDADD)
 AM_V_P = $(am__v_P_@AM_V@)
@@ -297,8 +297,8 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AM_CFLAGS = -Wall -Wextra
-duplicates_SOURCES = duplicates.c md5.c fileutil.c fileutil.h  md5.h \
- unlocked-io.h
+duplicates_SOURCES = duplicates.c md5.c fileops.c fileops.h  md5.h \
+ unlocked-io.h firstrun.h firstrun.c
 
 man_MANS = duplicates.1
 # next lines added by hand edit
@@ -416,7 +416,8 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/duplicates.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fileutil.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fileops.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/firstrun.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/md5.Po@am__quote@
 
 .c.o:
