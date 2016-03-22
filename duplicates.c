@@ -1,6 +1,6 @@
 /*      duplicates.c
  *
- *	Copyright 2015 Bob Parker <rlp1938@gmail.com>
+ *	Copyright 2016 Bob Parker <rlp1938@gmail.com>
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License as published by
@@ -31,7 +31,6 @@
 
 #include "md5.h"
 #include "fileops.h"
-//#include "fileutil.h"
 #include "firstrun.h"
 
 static int filecount;
