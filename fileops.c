@@ -247,3 +247,37 @@ int getans(const char *prompt, const char *choices)
 	}
 	return c;
 } // getans()
+
+int isrunning(char **proglist){
+	/* Iterate over /proc and see if anything in proglist is running.
+	 * proglist must be a NULL terminated list of program names.
+	*/
+	int result = 0;
+	DIR *prdir = opendir("/proc");
+	struct dirent *ditem;
+	char buf[NAME_MAX];
+	while ((ditem = readdir(prdir))) {
+		if (ditem->d_type != DT_DIR) continue;
+		int pidi = strtol(ditem->d_name, NULL, 10);
+		// next line takes care of ".", ".." and all alpha named files.
+		if (pidi < 100) continue;	// and also init() time pids
+		sprintf(buf, "/proc/%s/comm", ditem->d_name);
+		/* NB readfile() is useless here because stat() returns crap
+		 * for these pseudo files
+		*/
+		FILE *fpi = fopen(buf, "r");
+		if (fpi) {	// it maybe dissappeared already
+			char readbuf[NAME_MAX];
+			fscanf(fpi, "%s", readbuf);
+			int i = 0;
+			while(proglist[i]) {
+				if (strcmp(proglist[i], readbuf) == 0) result = 1;
+				i++;
+			}
+			fclose(fpi);
+		} // while(proglist[i])
+		if (result) break;
+	} // while(readdir())
+	closedir(prdir);
+	return result;
+} // isrunning()

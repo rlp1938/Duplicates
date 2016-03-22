@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <dirent.h>
 #include <fcntl.h>
 #include <stdarg.h>
 #include <getopt.h>
@@ -51,5 +52,6 @@ int fileexists(const char *path);
 void doread(int fd, size_t bcount, char *result);
 void dowrite(int fd, char *writebuf);
 int getans(const char *prompt, const char *choices);
+int isrunning(char **proglist);
 
 #endif
