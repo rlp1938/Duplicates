@@ -214,9 +214,9 @@ int isrunning(char **proglist){
 	return result;
 } // isrunning()
 
-char *gettmpfn(void)
+char *gettmpfn(const char *aname)
 {
-	static char tfn[NAME_MAX];
+	char tfn[NAME_MAX];
 	char *user = getenv("LOGNAME");
 	if (!user) {
 		user = getenv("USER");
@@ -226,8 +226,8 @@ char *gettmpfn(void)
 		}
 	}
 	pid_t myid = getpid();
-	sprintf(tfn, "/tmp/%s%i", user, myid);
-	return tfn;
+	sprintf(tfn, "/tmp/%s%i%s", user, myid, aname);
+	return dostrdup(tfn);
 } // gettmpfn()
 
 char **readcfg(const char *relpath)
@@ -499,3 +499,16 @@ int doopen(const char *fn, const char *mode)
 		}
 	return ofd;
 } // doopen()
+
+char *dostrdup(const char *s)
+{
+	/*
+	 * strdup() with in built error handling
+	*/
+	char *cp = strdup(s);
+	if(!(cp)) {
+		perror(s);
+		exit(EXIT_FAILURE);
+	}
+	return cp;
+} // dostrdup()

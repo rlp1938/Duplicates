@@ -59,7 +59,7 @@ int direxists(const char *path);
 int doopen(const char *fn, const char *mode);
 void doclose(int fd);
 int is_in_list(const char *what, const char **list);
-
+static char *dostrdup(const char *s);
 void doread(int fd, size_t bcount, char *result);
 void dowrite(int fd, char *writebuf);
 int dostat(const char *fn, struct stat *sb, int fatal);
@@ -77,7 +77,7 @@ size_t count_file_bytes(const char *path);
 fdata mem2str(char *pfrom, char *pto);
 int getans(const char *prompt, const char *choices);
 int isrunning(char **proglist);
-char *gettmpfn(void);
+char *gettmpfn(const char *aname);
 char **readcfg(const char *relpath);
 char *get_realpath_home(const char *relpath);
 void comment_text_to_space(char *from, const char *to);

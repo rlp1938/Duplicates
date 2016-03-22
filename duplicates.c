@@ -59,7 +59,7 @@ struct sizerecord {
 
 
 static void help_print(int forced);
-static char *dostrdup(const char *s);
+
 static void recursedir(char *headdir, FILE *fpo, char **vlist);
 static char *domd5sum(const char *pathname);
 static struct hashrecord parse_line(char *line);
@@ -308,20 +308,6 @@ void help_print(int forced){
     fputs(helptext, stderr);
     exit(forced);
 } // help_print()
-
-
-char *dostrdup(const char *s)
-{
-	/*
-	 * strdup() with in built error handling
-	*/
-	char *cp = strdup(s);
-	if(!(cp)) {
-		perror(s);
-		exit(EXIT_FAILURE);
-	}
-	return cp;
-} // dostrdup()
 
 void recursedir(char *headdir, FILE *fpo, char **vlist)
 {
