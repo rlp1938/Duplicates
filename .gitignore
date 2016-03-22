@@ -12,3 +12,6 @@
 /Makefile
 /stamp-h1
 /test*
+/btsort.c
+/geany_add.sh
+/nooptim.sh
