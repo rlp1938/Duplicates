@@ -59,14 +59,14 @@ int direxists(const char *path);
 int doopen(const char *fn, const char *mode);
 void doclose(int fd);
 int is_in_list(const char *what, const char **list);
-static char *dostrdup(const char *s);
+char *dostrdup(const char *s);
 void doread(int fd, size_t bcount, char *result);
 void dowrite(int fd, char *writebuf);
 int dostat(const char *fn, struct stat *sb, int fatal);
 void do_mkdir(const char *head_dir, const char *newdir);
 fdata dorealloc(fdata indata, int change);
 void *docalloc(size_t nmemb, size_t size, const char *func);
-
+char *getconfigpath(const char *pname);
 fdata readtextfile(const char *filename, off_t extra, int fatal);
 fdata readfile(const char *filename, off_t extra, int fatal);
 fdata readpseudofile(const char *path, off_t extra);
@@ -84,5 +84,6 @@ void comment_text_to_space(char *from, const char *to);
 int count_cfg_data_lines(char *from, char *to);
 void set_cfg_lines(char **lines, int numlines, char *from, char *to);
 int get_number_from_sysfile(const char *path);
+char *getconfigfile(const char *path, const char *fname);
 
 #endif

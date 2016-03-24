@@ -512,3 +512,21 @@ char *dostrdup(const char *s)
 	}
 	return cp;
 } // dostrdup()
+
+char *getconfigpath(const char *pname)
+{
+	char userhome[PATH_MAX];
+	char *enval = getenv("USER");
+	sprintf(userhome, "/home/%s/.config/%s/",
+			enval, pname);
+	return dostrdup(userhome);
+} // getconfigpath()
+
+char *getconfigfile(const char *path, const char *fname)
+{
+	char *cfgpath = getconfigpath(path);
+	char result[PATH_MAX];
+	sprintf(result, "%s%s", cfgpath, fname);
+	free(cfgpath);
+	return dostrdup(result);
+} // getconfigfile()

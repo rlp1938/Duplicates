@@ -63,7 +63,6 @@ static void help_print(int forced);
 static void recursedir(char *headdir, FILE *fpo, char **vlist);
 static char *domd5sum(const char *pathname);
 static struct hashrecord parse_line(char *line);
-static char *getconfigpath(void);
 static char **mem2strlist(char *from, char *to);
 static struct sizerecord parse_size_line(char *line);
 static void screenfilelist(const char *filein, const char *fileout,
@@ -105,10 +104,8 @@ int main(int argc, char **argv)
 	char command[FILENAME_MAX];
 	FILE *fpo;
 	char *topdir;
-	char *efl;	// path to excludes list
 	char **vlist;
 	struct stat sb;
-	struct fdata fdat;
 	dev_t thedev;
 	// set default values
 	verbosity = 0;
@@ -175,11 +172,12 @@ int main(int argc, char **argv)
 	}
 
 	// get my exclusions file
-	efl = getconfigpath();
-	fdat = readfile(efl, 1, 1);
-
+	char *efl = getconfigfile("duplicates", "excludes.conf");
+	fdata fdat = readfile(efl, 0, 1);
+	free(efl);
 	// turn the exclusions file into an array of strings
 	vlist = mem2strlist(fdat.from, fdat.to);
+	free(fdat.from);
 
 	// open the output workfile
 	fpo = dofopen(workfile0, "w");
@@ -465,15 +463,6 @@ struct hashrecord parse_line(char *line)
 	return hr;
 } // parse_line()
 
-char *getconfigpath(void)
-{
-	static char userhome[PATH_MAX];
-	char *enval = getenv("USER");
-	sprintf(userhome, "/home/%s/.config/duplicates/excludes.conf",
-			enval);
-	return userhome;
-} // getconfigpath()
-
 char **mem2strlist(char *from, char *to)
 {	/* input is a block of memory comprising data seperated by '\n'
 	Operate on the data to make a list of null terminated strings.
@@ -593,11 +582,10 @@ static void screenfilelist(const char *filein, const char *fileout,
 	FILE *fpo, *fplog;
 	char *line1, *line2;
 	struct sizerecord sr1, sr2;
-	struct fdata fdat;
 
 	fplog = dofopen("comparison_errors", "w");
 
-	fdat = readfile(filein, 0, 1);
+	fdata fdat = readfile(filein, 0, 1);
 	fpo = dofopen(fileout, "w");
 	line1 = fdat.from;
 	// replace '\n' with '\0'
