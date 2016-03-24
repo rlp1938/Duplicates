@@ -191,6 +191,10 @@ int main(int argc, char **argv)
 			exit(EXIT_FAILURE);
 		}
 		int newdev = getdeviceid(topdir);
+		if (newdev == -1) {
+			fprintf(stderr, "Error processing %s\n", topdir);
+			exit(EXIT_FAILURE);
+		}
 		if (thedev == 0) {
 			thedev = newdev;	// first look
 		} else {
