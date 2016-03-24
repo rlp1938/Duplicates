@@ -85,5 +85,5 @@ int count_cfg_data_lines(char *from, char *to);
 void set_cfg_lines(char **lines, int numlines, char *from, char *to);
 int get_number_from_sysfile(const char *path);
 char *getconfigfile(const char *path, const char *fname);
-
+int getdeviceid(const char *path);
 #endif

@@ -530,3 +530,10 @@ char *getconfigfile(const char *path, const char *fname)
 	free(cfgpath);
 	return dostrdup(result);
 } // getconfigfile()
+
+int getdeviceid(const char *path)
+{
+	struct stat sb;
+	if (stat(path, &sb) == -1) return -1;
+	return sb.st_dev;
+}

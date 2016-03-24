@@ -94,7 +94,7 @@ static char *eol; // string in case I ever want to do Microsoft
 
 int main(int argc, char **argv)
 {
-	int opt, verbosity, delworks, vlindex, crossdev;
+	int opt, verbosity, delworks, vlindex;
 	char *workfile0;
 	char *workfile1;
 	char *workfile2;
@@ -103,15 +103,12 @@ int main(int argc, char **argv)
 	char *workfile5;
 	char command[FILENAME_MAX];
 	FILE *fpo;
-	char *topdir;
 	char **vlist;
 	struct stat sb;
-	dev_t thedev;
 	// set default values
 	verbosity = 0;
 	filecount = 0;
 	delworks = 1;	// delete workfiles is the default.
-	crossdev = thedev = 0;	// working across different devices maybe
 	prefix = dostrdup("/usr/local/");
 
 	eol = "\n";	// string in case I ever want to do Microsoft
@@ -185,27 +182,20 @@ int main(int argc, char **argv)
 	if (verbosity){
 		fputs("Generating list of files and symlinks\n",stderr);
 	}
-
+	int crossdev = 0;
+	int thedev = 0;
 	while (argv[optind]) {
-		struct stat sb;
-
-		// Check that the dir exists.
-		if ((stat(argv[optind], &sb)) == -1){
-			perror(argv[optind]);
-			help_print(EXIT_FAILURE);
+		char *topdir = argv[optind];
+		if (direxists(topdir) == -1) {
+			fprintf(stderr, "%s non-existent or not a dir.\n", topdir);
+			exit(EXIT_FAILURE);
 		}
-
-		// Check that this is a dir
-		if (!(S_ISDIR(sb.st_mode))) {
-			fprintf(stderr, "Not a directory: %s\n", argv[optind]);
-			help_print(EXIT_FAILURE);
-		}
+		int newdev = getdeviceid(topdir);
 		if (thedev == 0) {
-			thedev = sb.st_dev;
+			thedev = newdev;	// first look
 		} else {
-			if (sb.st_dev != thedev) crossdev = 1;	// new process
+			if (newdev != thedev) crossdev = 1;	// new process
 		}
-		topdir = argv[optind];
 		{
 			// get rid of trailing '/'
 			int len = strlen(topdir);
