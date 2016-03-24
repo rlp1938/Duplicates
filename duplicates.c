@@ -208,7 +208,7 @@ int main(int argc, char **argv)
 		recursedir(topdir, fpo, vlist);
 		optind++;
 	} // while(argv[optind])
-	fclose(fpo);
+	dofclose(fpo);
 
 	// free the vlist items
 	vlindex = 0;
@@ -221,6 +221,7 @@ int main(int argc, char **argv)
 	if (verbosity){
 		fputs("Sorting list of files\n", stderr);
 	}
+
 	if (setenv("LC_ALL", "C", 1) == -1){	// sort bitwise L-R
 		perror("LC_ALL=C");
 		exit(EXIT_FAILURE);
@@ -422,7 +423,7 @@ char *domd5sum(const char *pathname)
 		tmp += 2;
 	}
 	c[32] = '\0';
-	fclose(fpi);
+	dofclose(fpi);
 	return c;
 } // domd5sum()
 
@@ -633,8 +634,8 @@ re_init:
 		line1 = line2;	// handy if I'm in gdb
 		line2 += strlen(line2) +1;
 	} // while(line2...)
-	fclose(fpo);
-	fclose(fplog);
+	dofclose(fpo);
+	dofclose(fplog);
 } // screenfilelist()
 
 int cmp(const char *path1, const char *path2, FILE *fplog)
@@ -658,14 +659,14 @@ int cmp(const char *path1, const char *path2, FILE *fplog)
 	if (!(fp2)) {
 		fputs("cmp(2)\n", stderr);
 		perror(path2);
-		fclose(fp1);
+		dofclose(fp1);
 		return 1;
 	}
 
 	b1 = fread(buf1, 1, chunk, fp1);
 	b2 = fread(buf2, 1, chunk, fp2);
-	fclose(fp1);
-	fclose(fp2);
+	dofclose(fp1);
+	dofclose(fp2);
 	if (b1 != b2) {	// record the errors in a log file. Not fatal
 		fprintf(fplog, "File length mismatch: %s %lu , %s %lu\n",
 				path1, b1, path2, b2);
@@ -715,7 +716,7 @@ static void cluster_output(const char *workfilein,
 			strcpy(clustername, hr1.path);
 		}
 	} // while(line1...)
-	fclose(fpo);
+	dofclose(fpo);
 } // cluster_output()
 
 static void report(const char *path, int verbosity)
@@ -787,7 +788,7 @@ re_init:
 		line1 = line2;	// handy if I'm in gdb
 		line2 += strlen(line2) +1;
 	} // while(line2...)
-	fclose(fpo);
+	dofclose(fpo);
 } // screenuniquesizeonly()
 
 static void stripclusterpath(const char *filein, FILE *fpo)
